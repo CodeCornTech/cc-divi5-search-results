@@ -14,7 +14,7 @@
     "check": "npm run check:types && npm run check:json",
     "check:types": "tsc --noEmit",
     "check:json": "node scripts/check-json.cjs",
-    "reset-install": "rm -rf node_modules package-lock.json && npm install"
+    "reset-install": "rm -rf node_modules && npm ci"
   },
   "devDependencies": {
     "@divi/types": "npm:divi-types@^1.0.10",
