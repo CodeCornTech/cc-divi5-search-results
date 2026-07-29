@@ -11,7 +11,12 @@
 - Optional `[cc_divi5_search_results]` adapter backed by the shared resolver and renderer.
 - Visual Builder TypeScript source, webpack build and responsive frontend styles.
 - README documentation contract requiring code and documentation to remain synchronized in every PR.
+- Explicit TypeScript validation through `npm run check:types` and aggregate validation through `npm run check`.
 
 ### Changed
 
 - Plugin bootstrap now supports Composer autoloading and a source-checkout fallback autoloader.
+- TypeScript compiler settings now emit the Divi Visual Builder bundle and follow the compatibility settings used by the official Divi 5 example modules.
+- Visual Builder attribute interfaces now use native Divi element types instead of generic unknown records.
+- Visual Builder edit and style renderers now guard optional props exposed by the published Divi types.
+- Development dependencies now include the transitive declarations required by the Divi 5.9.0 type packages.
