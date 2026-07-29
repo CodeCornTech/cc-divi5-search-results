@@ -1,0 +1,10 @@
+{
+  "name": "cc-divi5-search-results",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native, type-aware search results for Divi 5.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
