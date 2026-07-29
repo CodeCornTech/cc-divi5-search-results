@@ -113,22 +113,22 @@ Requirements:
 - Node.js 18+ and npm 10+;
 - Composer.
 
-Install and build:
+Install from the committed dependency locks and build:
 
 ```bash
 composer install
-npm install
+npm ci
 npm run check
 npm run build
 ```
 
-After any change to `package.json` or `.npmrc`, reset the local dependency tree before validating:
+To rebuild the installed npm tree without changing the committed dependency graph:
 
 ```bash
 npm run reset-install
 ```
 
-`reset-install` removes `node_modules` and `package-lock.json`, then performs a fresh install using the repository `.npmrc` policy. Run it only after pulling the commit that defines the script.
+`reset-install` removes only `node_modules`, then runs `npm ci`. It deliberately preserves `package-lock.json`. Changes to `package.json` must be followed by an intentional `npm install`, review of the resulting lockfile diff and inclusion of both files in the same pull request. The same rule applies to `composer.json` and `composer.lock`.
 
 Validation:
 
@@ -142,7 +142,7 @@ npm run check:json
 
 The published Divi 5 type aliases contain mutually incompatible development-only peer ranges: `react-dates` requests React/ReactDOM 16 while current WordPress packages request React 18. The repository therefore commits `.npmrc` with `legacy-peer-deps=true`; this prevents npm 10 from attempting an impossible peer-resolution graph. React remains externalized from the Visual Builder bundle, so this setting does not select or ship a second runtime React version. The same file keeps `engine-strict=true`.
 
-The npm installation can still report deprecation warnings from the `divi-types*` compatibility aliases used by Elegant Themes. Those warnings are not treated as a successful build: the authoritative result is the exit status of `npm run check` and `npm run build`. Do not run `npm audit fix --force`, because it can replace Divi-compatible development dependencies with breaking versions.
+The npm installation can still report deprecation and audit warnings from the `divi-types*` compatibility aliases used by Elegant Themes. Those warnings are not treated as a successful build: the authoritative result is the exit status of `npm run check` and `npm run build`. Do not run `npm audit fix --force`, because it can replace Divi-compatible development dependencies with breaking versions.
 
 After `npm run build`, the generated files are:
 
@@ -152,6 +152,8 @@ styles/vb-bundle.css
 modules-json/search-results/module.json
 modules-json/search-result-type/module.json
 ```
+
+Local proprietary references, including an extracted Divi theme under `.reference/`, are ignored by Git and must never be committed. A source checkout is therefore not a distributable plugin archive by itself: release packaging must run the build and include the generated Visual Builder assets and module metadata.
 
 ## Not implemented yet
 
@@ -165,7 +167,8 @@ The README deliberately does not present the following as available:
 - per-breakpoint column controls;
 - image fallback and ratio controls;
 - card presets;
-- AJAX navigation.
+- AJAX navigation;
+- automated release archive generation.
 
 Those capabilities will be added in later reviewable increments without changing the shared renderer contract.
 
