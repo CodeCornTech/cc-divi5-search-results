@@ -53,30 +53,29 @@ cc_d5sr_init_colors() {
     fi
 
     case "$mode" in
-        always)
-            ;;
-        never)
+    always) ;;
+    never)
+        CC_D5SR_RED=''
+        CC_D5SR_GREEN=''
+        CC_D5SR_YELLOW=''
+        CC_D5SR_CYAN=''
+        CC_D5SR_RESET=''
+        return 0
+        ;;
+    auto)
+        if [[ ! -t 1 ]]; then
             CC_D5SR_RED=''
             CC_D5SR_GREEN=''
             CC_D5SR_YELLOW=''
             CC_D5SR_CYAN=''
             CC_D5SR_RESET=''
             return 0
-            ;;
-        auto)
-            if [[ ! -t 1 ]]; then
-                CC_D5SR_RED=''
-                CC_D5SR_GREEN=''
-                CC_D5SR_YELLOW=''
-                CC_D5SR_CYAN=''
-                CC_D5SR_RESET=''
-                return 0
-            fi
-            ;;
-        *)
-            printf 'ERRORE: CC_D5SR_COLOR deve essere auto, always o never.\n' >&2
-            return 1
-            ;;
+        fi
+        ;;
+    *)
+        printf 'ERRORE: CC_D5SR_COLOR deve essere auto, always o never.\n' >&2
+        return 1
+        ;;
     esac
 
     CC_D5SR_RED=$'\033[31m'
@@ -100,12 +99,12 @@ cc_d5sr_sha256() {
 
     if cc_d5sr_command_exists sha256sum; then
         sha256sum "$file" | awk '{print $1}'
-        return ${PIPESTATUS[0]}
+        return "${PIPESTATUS[0]}"
     fi
 
     if cc_d5sr_command_exists shasum; then
         shasum -a 256 "$file" | awk '{print $1}'
-        return ${PIPESTATUS[0]}
+        return "${PIPESTATUS[0]}"
     fi
 
     cc_d5sr_error 'sha256sum o shasum non disponibile'
@@ -136,13 +135,13 @@ cc_d5sr_validate_integer() {
 
 cc_d5sr_validate_mode() {
     case "$1" in
-        auto|host|docker)
-            return 0
-            ;;
-        *)
-            cc_d5sr_error 'CC_D5SR_DEPLOY_MODE deve essere auto, host o docker'
-            return 1
-            ;;
+    auto | host | docker)
+        return 0
+        ;;
+    *)
+        cc_d5sr_error 'CC_D5SR_DEPLOY_MODE deve essere auto, host o docker'
+        return 1
+        ;;
     esac
 }
 
@@ -197,6 +196,7 @@ cc_d5sr_build_package() {
         composer check:syntax || return 1
     ) || return 1
 
+    # shellcheck disable=SC2016
     version="$(php -r '$data = file_get_contents($argv[1]); if (preg_match("/^[[:space:]]*\\*[[:space:]]*Version:[[:space:]]*([^[:space:]]+)/m", $data, $m)) { echo $m[1]; }' "$repo_root/cc-divi5-search-results.php")"
     [[ -n "$version" ]] || {
         cc_d5sr_error 'impossibile rilevare la versione dal plugin header'
@@ -247,11 +247,12 @@ cc_d5sr_build_package() {
 
     [[ -n "$branch" ]] || branch='detached'
 
+    # shellcheck disable=SC2016
     CC_D5SR_MANIFEST_PLUGIN="$plugin_slug" \
-    CC_D5SR_MANIFEST_VERSION="$version" \
-    CC_D5SR_MANIFEST_COMMIT="$commit" \
-    CC_D5SR_MANIFEST_BRANCH="$branch" \
-    CC_D5SR_MANIFEST_BUILT_AT="$built_at" \
+        CC_D5SR_MANIFEST_VERSION="$version" \
+        CC_D5SR_MANIFEST_COMMIT="$commit" \
+        CC_D5SR_MANIFEST_BRANCH="$branch" \
+        CC_D5SR_MANIFEST_BUILT_AT="$built_at" \
         php -r '
             $manifest = array(
                 "plugin"       => getenv("CC_D5SR_MANIFEST_PLUGIN"),
@@ -262,9 +263,9 @@ cc_d5sr_build_package() {
             );
             file_put_contents($argv[1], json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
         ' "$stage_dir/build-manifest.json" || {
-            rm -rf "$stage_parent"
-            return 1
-        }
+        rm -rf "$stage_parent"
+        return 1
+    }
 
     archive="$dist_dir/${plugin_slug}-${version}-${commit:0:12}.tar.gz"
     tar -C "$stage_parent" -czf "$archive" "$plugin_slug" || {
@@ -277,7 +278,7 @@ cc_d5sr_build_package() {
         return 1
     }
 
-    printf '%s  %s\n' "$archive_sha" "$(basename "$archive")" > "$archive.sha256" || {
+    printf '%s  %s\n' "$archive_sha" "$(basename "$archive")" >"$archive.sha256" || {
         rm -rf "$stage_parent"
         return 1
     }
@@ -286,8 +287,8 @@ cc_d5sr_build_package() {
 
     CC_D5SR_PACKAGE_PATH="$archive"
     CC_D5SR_PACKAGE_SHA256="$archive_sha"
-    CC_D5SR_PACKAGE_VERSION="$version"
-    CC_D5SR_PACKAGE_COMMIT="$commit"
+    export CC_D5SR_PACKAGE_VERSION="$version"
+    export CC_D5SR_PACKAGE_COMMIT="$commit"
 
     cc_d5sr_ok "pacchetto creato: $archive"
     cc_d5sr_ok "SHA-256: $archive_sha"
@@ -646,24 +647,24 @@ cc_d5sr_main() {
 
     while (($#)); do
         case "$1" in
-            --dry-run)
-                action='dry-run'
-                ;;
-            --package-only)
-                action='package-only'
-                ;;
-            --apply)
-                action='apply'
-                ;;
-            -h|--help)
-                cc_d5sr_usage
-                return 0
-                ;;
-            *)
-                cc_d5sr_error "argomento non riconosciuto: $1"
-                cc_d5sr_usage >&2
-                return 1
-                ;;
+        --dry-run)
+            action='dry-run'
+            ;;
+        --package-only)
+            action='package-only'
+            ;;
+        --apply)
+            action='apply'
+            ;;
+        -h | --help)
+            cc_d5sr_usage
+            return 0
+            ;;
+        *)
+            cc_d5sr_error "argomento non riconosciuto: $1"
+            cc_d5sr_usage >&2
+            return 1
+            ;;
         esac
         shift
     done
@@ -722,40 +723,44 @@ cc_d5sr_main() {
     cc_d5sr_build_package "$repo_root" "$dist_dir" "$plugin_slug" || return 1
 
     case "$action" in
-        package-only)
-            printf '%s\n' "$CC_D5SR_PACKAGE_PATH"
-            return 0
-            ;;
-        dry-run)
-            cc_d5sr_info 'Dry-run completato: nessun collegamento SSH e nessuna modifica remota'
-            printf 'Pacchetto: %s\n' "$CC_D5SR_PACKAGE_PATH"
-            printf 'SHA-256:  %s\n' "$CC_D5SR_PACKAGE_SHA256"
-            printf 'Target:   %s\n' "${deploy_target:-<non impostato>}"
-            printf 'Modalità: %s\n' "$deploy_mode"
-            printf 'Container:%s\n' " ${deploy_container:-<nessuno>}"
-            printf 'WP root:  %s\n' "$remote_wp_root"
-            return 0
-            ;;
-        apply)
-            [[ -n "$deploy_target" ]] || {
-                cc_d5sr_error 'CC_D5SR_DEPLOY_TARGET è obbligatorio per --apply'
-                return 1
-            }
+    package-only)
+        printf '%s\n' "$CC_D5SR_PACKAGE_PATH"
+        return 0
+        ;;
+    dry-run)
+        cc_d5sr_info 'Dry-run completato: nessun collegamento SSH e nessuna modifica remota'
+        printf 'Pacchetto: %s\n' "$CC_D5SR_PACKAGE_PATH"
+        printf 'SHA-256:  %s\n' "$CC_D5SR_PACKAGE_SHA256"
+        printf 'Target:   %s\n' "${deploy_target:-<non impostato>}"
+        printf 'Modalità: %s\n' "$deploy_mode"
+        printf 'Container:%s\n' " ${deploy_container:-<nessuno>}"
+        printf 'WP root:  %s\n' "$remote_wp_root"
+        return 0
+        ;;
+    apply)
+        [[ -n "$deploy_target" ]] || {
+            cc_d5sr_error 'CC_D5SR_DEPLOY_TARGET è obbligatorio per --apply'
+            return 1
+        }
 
-            cc_d5sr_deploy_remote \
-                "$deploy_target" \
-                "$ssh_port" \
-                "$deploy_mode" \
-                "$deploy_container" \
-                "$remote_wp_root" \
-                "$remote_state" \
-                "$plugin_slug" \
-                "$activate" \
-                "$backup_keep" || return 1
+        cc_d5sr_deploy_remote \
+            "$deploy_target" \
+            "$ssh_port" \
+            "$deploy_mode" \
+            "$deploy_container" \
+            "$remote_wp_root" \
+            "$remote_state" \
+            "$plugin_slug" \
+            "$activate" \
+            "$backup_keep" || return 1
 
-            cc_d5sr_ok "deploy completato su $deploy_target"
-            ;;
+        cc_d5sr_ok "deploy completato su $deploy_target"
+        ;;
     esac
 }
 
 cc_d5sr_main "$@"
+
+unset \
+    CC_D5SR_PACKAGE_COMMIT \
+    CC_D5SR_PACKAGE_VERSION
