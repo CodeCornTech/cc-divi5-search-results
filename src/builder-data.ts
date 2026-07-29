@@ -54,8 +54,20 @@ const fallbackPostTypes: PostTypeOptions = {
   },
 };
 
+const getBuilderData = (): BuilderData | undefined => {
+  if (window.ccD5srBuilderData) {
+    return window.ccD5srBuilderData;
+  }
+
+  try {
+    return window.top?.ccD5srBuilderData;
+  } catch {
+    return undefined;
+  }
+};
+
 export const getPostTypeOptions = (): PostTypeOptions => {
-  const options = window.ccD5srBuilderData?.postTypes;
+  const options = getBuilderData()?.postTypes;
 
   if (! options || Object.keys(options).length === 0) {
     return fallbackPostTypes;
