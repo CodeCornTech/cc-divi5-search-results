@@ -22,6 +22,12 @@ interface MutableFieldComponent {
   };
 }
 
+interface MutableFieldMetadata {
+  label?: string;
+  description?: string;
+  component?: MutableFieldComponent;
+}
+
 interface MutableModuleMetadata {
   title?: string;
   titles?: string;
@@ -31,9 +37,7 @@ interface MutableModuleMetadata {
       settings?: {
         innerContent?: {
           items?: {
-            postType?: {
-              component?: MutableFieldComponent;
-            };
+            postType?: MutableFieldMetadata;
           };
         };
       };
@@ -72,6 +76,8 @@ export const prepareSearchResultTypeMetadata = <T>(metadata: T): T => {
   mutableMetadata.titles = 'CC Result Types';
 
   if (postTypeField) {
+    postTypeField.label = 'Post type';
+    postTypeField.description = 'Choose one of the public post types registered by WordPress.';
     postTypeField.component = {
       ...postTypeField.component,
       name:  'divi/select',
