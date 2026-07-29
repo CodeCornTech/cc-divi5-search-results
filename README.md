@@ -22,6 +22,7 @@ The `0.1.0` development branch currently includes:
 - deterministic runtime packaging with build manifest and SHA-256 checksum;
 - VM deployment workflow for host and Docker WordPress installations, including backup and automatic rollback;
 - a Barbagia Musei deployment wrapper pinned to the real `docker02` Compose stack and `wp_cron` service;
+- non-interactive Barbagia preflight for SSH public-key authentication and remote Docker API access;
 - frontend CSS with responsive grid behavior.
 
 The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
@@ -282,7 +283,58 @@ The resolved container is currently named `cron_barbagiamusei`, but that name is
 - `tar`;
 - WP-CLI.
 
-The remote Compose command uses the absolute `-f` path. It does not depend on the SSH login directory or on the repository path shown by the remote shell prompt.
+The remote Compose command uses the absolute `-f` path. It does not depend on the SSH login directory or on the repository path shown by the remote shell prompt. Docker is executed on `docker02`; a stopped Docker Desktop installation on the local Mac has no effect on this workflow.
+
+The Barbagia apply command is intentionally non-interactive. Before packaging or upload it requires both of these checks to pass:
+
+```bash
+ssh -o BatchMode=yes docker02 true
+ssh -o BatchMode=yes docker02 docker info
+```
+
+The first check proves that the Mac can authenticate with the configured SSH key without falling back to the account password. The second proves that the remote `fgirolami` session can access `/var/run/docker.sock` without `sudo`. The deploy script never stores, pipes or retries SSH or sudo passwords.
+
+One-time SSH-key bootstrap, only when the first check fails:
+
+```bash
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+
+cat ~/.ssh/id_ed25519.pub | ssh docker02 '
+    umask 077
+    mkdir -p ~/.ssh
+    touch ~/.ssh/authorized_keys
+    IFS= read -r key
+    grep -qxF "$key" ~/.ssh/authorized_keys || printf "%s\n" "$key" >> ~/.ssh/authorized_keys
+    chmod 700 ~/.ssh
+    chmod 600 ~/.ssh/authorized_keys
+'
+
+ssh -o BatchMode=yes docker02 true
+```
+
+The `ssh` command used to install the public key may request the normal account password once. The final `BatchMode=yes` verification must not request any password.
+
+One-time Docker-access bootstrap, only when the second check fails:
+
+```bash
+ssh -tt docker02 'sudo usermod -aG docker fgirolami'
+```
+
+After changing group membership, terminate the old SSH session and open a new one. If SSH connection multiplexing is configured globally, close the existing master connection before verification:
+
+```bash
+ssh -O exit docker02 2>/dev/null || true
+
+ssh -o BatchMode=yes docker02 '
+    id
+    docker info >/dev/null
+    docker compose \
+        -f /home/fgirolami/docker/barbagiamusei/compose.yaml \
+        ps -q wp_cron
+'
+```
+
+Membership in the `docker` group grants root-equivalent control of the Docker host. This stack already requires Docker administration for deployment, so the requirement is explicit rather than hidden behind an interactive sudo prompt.
 
 Optional Barbagia overrides are available only when the stack changes intentionally:
 
