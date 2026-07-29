@@ -18,6 +18,7 @@ The `0.1.0` development branch currently includes:
 - accessible result count, search form, result cards, pagination and empty state;
 - shared rendering used by both the native module and `[cc_divi5_search_results]`;
 - Visual Builder TypeScript sources, Divi-compatible compiler configuration and webpack build;
+- repository-level npm configuration for the incompatible peer ranges published by the Divi 5 type aliases;
 - frontend CSS with responsive grid behavior.
 
 The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
@@ -121,6 +122,13 @@ npm run check
 npm run build
 ```
 
+After any change to `package.json` or `.npmrc`, reset the local dependency tree before validating:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
 Validation:
 
 ```bash
@@ -131,7 +139,9 @@ npm run check:json
 
 `ts-loader` performs type checking during `npm run build`; it is not configured with `transpileOnly`. The compiler configuration intentionally follows the compatibility surface used by the official Divi 5 example modules: emitted ES5 JavaScript, classic React JSX and no strict-null checking inside the published Divi type sources.
 
-The npm installation can report peer-resolution and deprecation warnings from the `divi-types*` compatibility aliases used by Elegant Themes. Those warnings are not treated as a successful build: the authoritative result is the exit status of `npm run check` and `npm run build`. Do not run `npm audit fix --force`, because it can replace Divi-compatible development dependencies with breaking versions.
+The published Divi 5 type aliases contain mutually incompatible development-only peer ranges: `react-dates` requests React/ReactDOM 16 while current WordPress packages request React 18. The repository therefore commits `.npmrc` with `legacy-peer-deps=true`; this prevents npm 10 from attempting an impossible peer-resolution graph. React remains externalized from the Visual Builder bundle, so this setting does not select or ship a second runtime React version. The same file keeps `engine-strict=true`.
+
+The npm installation can still report deprecation warnings from the `divi-types*` compatibility aliases used by Elegant Themes. Those warnings are not treated as a successful build: the authoritative result is the exit status of `npm run check` and `npm run build`. Do not run `npm audit fix --force`, because it can replace Divi-compatible development dependencies with breaking versions.
 
 After `npm run build`, the generated files are:
 
