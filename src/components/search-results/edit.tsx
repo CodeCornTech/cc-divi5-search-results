@@ -32,13 +32,13 @@ export const SearchResultsEdit = (props: SearchResultsEditProps): ReactElement =
     >
       {elements.styleComponents({ attrName: 'module' })}
       <div className="cc-d5sr-vb-preview">
-        <strong>Search Results</strong>
+        <strong>CC Search Results</strong>
         <span>
           {query?.source === 'isolated'
             ? `Isolated query: ${query.searchTerm || 'no search term'}`
             : 'Current WordPress search query'}
         </span>
-        <small>Result Type Rule children configure the frontend cards.</small>
+        <small>CC Result Type children configure the frontend cards.</small>
       </div>
       <ChildModulesContainer ids={childrenIds} />
     </ModuleContainer>
