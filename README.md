@@ -21,6 +21,7 @@ The `0.1.0` development branch currently includes:
 - repository-level npm configuration for the incompatible peer ranges published by the Divi 5 type aliases;
 - deterministic runtime packaging with build manifest and SHA-256 checksum;
 - VM deployment workflow for host and Docker WordPress installations, including backup and automatic rollback;
+- a Barbagia Musei deployment wrapper pinned to the real `docker02` Compose stack and `wp_cron` service;
 - frontend CSS with responsive grid behavior.
 
 The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
@@ -227,10 +228,12 @@ export CC_D5SR_DEPLOY_TARGET="user@example-host"
 
 ### Docker WordPress example
 
+`CC_D5SR_DEPLOY_CONTAINER` is a Docker container name or ID, not a Compose service name.
+
 ```bash
 export CC_D5SR_DEPLOY_TARGET="user@example-host"
 export CC_D5SR_DEPLOY_MODE="docker"
-export CC_D5SR_DEPLOY_CONTAINER="wordpress"
+export CC_D5SR_DEPLOY_CONTAINER="wordpress-container-name"
 export CC_D5SR_REMOTE_WP_ROOT="/var/www/html"
 
 composer deploy:check
@@ -238,6 +241,57 @@ composer deploy
 ```
 
 The VM must provide Docker. The selected container must provide `php`, `tar` and, when activation is enabled, `wp`.
+
+### Barbagia Musei on `docker02`
+
+The dedicated wrapper removes all manual container and path discovery. Run it from the local repository root:
+
+```bash
+cd "$GH_PATH/cc-divi5-search-results" || return 1
+
+composer deploy:barbagia:check
+composer deploy:barbagia
+```
+
+The wrapper is pinned to this deployment contract:
+
+```text
+Local repository:   $GH_PATH/cc-divi5-search-results
+SSH target:         docker02
+Remote Compose file:/home/fgirolami/docker/barbagiamusei/compose.yaml
+Compose service:    wp_cron
+WordPress root:     /var/www/html
+Activation:         enabled
+Backup retention:   10
+```
+
+`composer deploy:barbagia:check` runs the complete local package validation without SSH or remote changes.
+
+`composer deploy:barbagia` connects to `docker02` and resolves the running container dynamically with:
+
+```bash
+docker compose \
+    -f /home/fgirolami/docker/barbagiamusei/compose.yaml \
+    ps -q wp_cron
+```
+
+The resolved container is currently named `cron_barbagiamusei`, but that name is not hardcoded because it can change after a Compose recreate. Before deployment, the wrapper requires exactly one running container for `wp_cron` and verifies inside it:
+
+- `/var/www/html/wp-load.php`;
+- PHP CLI;
+- `tar`;
+- WP-CLI.
+
+The remote Compose command uses the absolute `-f` path. It does not depend on the SSH login directory or on the repository path shown by the remote shell prompt.
+
+Optional Barbagia overrides are available only when the stack changes intentionally:
+
+```text
+CC_D5SR_DEPLOY_TARGET       default docker02
+CC_D5SR_COMPOSE_FILE        default /home/fgirolami/docker/barbagiamusei/compose.yaml
+CC_D5SR_COMPOSE_SERVICE     default wp_cron
+CC_D5SR_REMOTE_WP_ROOT      default /var/www/html
+```
 
 ### Host WordPress example
 
@@ -255,9 +309,9 @@ The host must provide `php` and, when activation is enabled, `wp`.
 ### Deployment variables
 
 ```text
-CC_D5SR_DEPLOY_TARGET       required for deploy; SSH user/host
+CC_D5SR_DEPLOY_TARGET       required for generic deploy; SSH user/host
 CC_D5SR_DEPLOY_MODE         auto, host or docker; default auto
-CC_D5SR_DEPLOY_CONTAINER    required by docker mode
+CC_D5SR_DEPLOY_CONTAINER    Docker container name or ID; never a Compose service
 CC_D5SR_REMOTE_WP_ROOT      default /var/www/html
 CC_D5SR_REMOTE_STATE_DIR    default .local/state/cc-divi5-search-results
 CC_D5SR_SSH_PORT            default 22
@@ -268,7 +322,7 @@ CC_D5SR_COLOR               auto, always or never
 NO_COLOR                    disables ANSI colors
 ```
 
-The default remote state path is relative to the SSH user's home directory. It contains incoming archives, temporary extraction directories and timestamped backups. No credentials or VM-specific values belong in the repository.
+The default remote state path is relative to the SSH user's home directory. It contains incoming archives, temporary extraction directories and timestamped backups. No credentials belong in the repository. The Barbagia wrapper intentionally contains the non-secret stack path and service contract so deployment does not rely on operator memory.
 
 ## Not implemented yet
 
