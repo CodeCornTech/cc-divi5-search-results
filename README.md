@@ -20,7 +20,7 @@ The `0.1.0` development branch currently includes:
 - Visual Builder TypeScript sources, Divi-compatible compiler configuration and webpack build;
 - repository-level npm configuration for the incompatible peer ranges published by the Divi 5 type aliases;
 - deterministic runtime packaging with build manifest and SHA-256 checksum;
-- verified VM deployment for host and Docker WordPress installations, including backup and automatic rollback;
+- VM deployment workflow for host and Docker WordPress installations, including backup and automatic rollback;
 - frontend CSS with responsive grid behavior.
 
 The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
@@ -191,6 +191,8 @@ Packaging requires:
 - committed `composer.lock` and `package-lock.json`;
 - a clean working tree unless `CC_D5SR_REQUIRE_CLEAN=0` is set explicitly;
 - successful `composer install --no-dev`, `npm ci`, `npm run check`, `npm run build` and `composer check:syntax`.
+
+The package path, archive contents and checksum flow have been exercised against a disposable mock repository. The first real VM deployment remains a required integration test before this PR can leave draft state.
 
 ## VM deployment
 
