@@ -1,0 +1,761 @@
+#!/usr/bin/env bash
+
+cc_d5sr_usage() {
+    cat <<'USAGE'
+Uso:
+  bin/cc-deploy-vm --dry-run
+  bin/cc-deploy-vm --package-only
+  bin/cc-deploy-vm --apply
+
+Variabili richieste per --apply:
+  CC_D5SR_DEPLOY_TARGET      Destinazione SSH, ad esempio user@example-host
+
+Variabili opzionali:
+  CC_D5SR_DEPLOY_MODE        auto, host o docker. Default: auto
+  CC_D5SR_DEPLOY_CONTAINER   Container WordPress per la modalità docker
+  CC_D5SR_REMOTE_WP_ROOT     Root WordPress remoto. Default: /var/www/html
+  CC_D5SR_REMOTE_STATE_DIR   Stato, backup e staging remoti.
+                             Default: .local/state/cc-divi5-search-results
+  CC_D5SR_SSH_PORT           Porta SSH. Default: 22
+  CC_D5SR_ACTIVATE           1 per attivare/verificare il plugin via WP-CLI. Default: 1
+  CC_D5SR_BACKUP_KEEP        Numero massimo di backup remoti. Default: 10
+  CC_D5SR_REQUIRE_CLEAN      1 per richiedere una working tree pulita. Default: 1
+  CC_D5SR_COLOR              auto, always o never. Default: auto
+  NO_COLOR                   Disabilita i colori ANSI
+USAGE
+}
+
+cc_d5sr_error() {
+    printf '%bERRORE:%b %s\n' "$CC_D5SR_RED" "$CC_D5SR_RESET" "$*" >&2
+}
+
+cc_d5sr_info() {
+    printf '%b==>%b %s\n' "$CC_D5SR_CYAN" "$CC_D5SR_RESET" "$*"
+}
+
+cc_d5sr_ok() {
+    printf '%bOK:%b %s\n' "$CC_D5SR_GREEN" "$CC_D5SR_RESET" "$*"
+}
+
+cc_d5sr_warn() {
+    printf '%bATTENZIONE:%b %s\n' "$CC_D5SR_YELLOW" "$CC_D5SR_RESET" "$*" >&2
+}
+
+cc_d5sr_command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+cc_d5sr_init_colors() {
+    local mode="${CC_D5SR_COLOR:-auto}"
+
+    if [[ -n "${NO_COLOR:-}" ]]; then
+        mode="never"
+    fi
+
+    case "$mode" in
+        always)
+            ;;
+        never)
+            CC_D5SR_RED=''
+            CC_D5SR_GREEN=''
+            CC_D5SR_YELLOW=''
+            CC_D5SR_CYAN=''
+            CC_D5SR_RESET=''
+            return 0
+            ;;
+        auto)
+            if [[ ! -t 1 ]]; then
+                CC_D5SR_RED=''
+                CC_D5SR_GREEN=''
+                CC_D5SR_YELLOW=''
+                CC_D5SR_CYAN=''
+                CC_D5SR_RESET=''
+                return 0
+            fi
+            ;;
+        *)
+            printf 'ERRORE: CC_D5SR_COLOR deve essere auto, always o never.\n' >&2
+            return 1
+            ;;
+    esac
+
+    CC_D5SR_RED=$'\033[31m'
+    CC_D5SR_GREEN=$'\033[32m'
+    CC_D5SR_YELLOW=$'\033[33m'
+    CC_D5SR_CYAN=$'\033[36m'
+    CC_D5SR_RESET=$'\033[0m'
+}
+
+cc_d5sr_require_command() {
+    local command_name="$1"
+
+    if ! cc_d5sr_command_exists "$command_name"; then
+        cc_d5sr_error "comando richiesto non disponibile: $command_name"
+        return 1
+    fi
+}
+
+cc_d5sr_sha256() {
+    local file="$1"
+
+    if cc_d5sr_command_exists sha256sum; then
+        sha256sum "$file" | awk '{print $1}'
+        return ${PIPESTATUS[0]}
+    fi
+
+    if cc_d5sr_command_exists shasum; then
+        shasum -a 256 "$file" | awk '{print $1}'
+        return ${PIPESTATUS[0]}
+    fi
+
+    cc_d5sr_error 'sha256sum o shasum non disponibile'
+    return 1
+}
+
+cc_d5sr_copy_path() {
+    local source="$1"
+    local destination="$2"
+
+    if [[ ! -e "$source" ]]; then
+        cc_d5sr_error "percorso runtime mancante: $source"
+        return 1
+    fi
+
+    cp -R "$source" "$destination" || return 1
+}
+
+cc_d5sr_validate_integer() {
+    local value="$1"
+    local name="$2"
+
+    if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+        cc_d5sr_error "$name deve essere un intero non negativo"
+        return 1
+    fi
+}
+
+cc_d5sr_validate_mode() {
+    case "$1" in
+        auto|host|docker)
+            return 0
+            ;;
+        *)
+            cc_d5sr_error 'CC_D5SR_DEPLOY_MODE deve essere auto, host o docker'
+            return 1
+            ;;
+    esac
+}
+
+cc_d5sr_validate_remote_value() {
+    local value="$1"
+    local name="$2"
+
+    if [[ ! "$value" =~ ^[A-Za-z0-9_./@:-]+$ ]]; then
+        cc_d5sr_error "$name contiene caratteri non ammessi"
+        return 1
+    fi
+}
+
+cc_d5sr_build_package() {
+    local repo_root="$1"
+    local dist_dir="$2"
+    local plugin_slug="$3"
+    local stage_parent stage_dir version commit branch built_at archive archive_sha
+
+    cc_d5sr_info 'Verifica lockfile'
+
+    [[ -f "$repo_root/package-lock.json" ]] || {
+        cc_d5sr_error 'package-lock.json mancante: il deploy richiede il grafo npm bloccato'
+        return 1
+    }
+
+    [[ -f "$repo_root/composer.lock" ]] || {
+        cc_d5sr_error 'composer.lock mancante: il deploy richiede il grafo Composer bloccato'
+        return 1
+    }
+
+    if [[ "${CC_D5SR_REQUIRE_CLEAN:-1}" == '1' ]]; then
+        if [[ -n "$(git -C "$repo_root" status --porcelain --untracked-files=all)" ]]; then
+            cc_d5sr_error 'working tree non pulita; commit o rimuovi le modifiche prima del deploy'
+            git -C "$repo_root" status --short >&2
+            return 1
+        fi
+    fi
+
+    cc_d5sr_info 'Installazione dipendenze bloccate'
+    (
+        cd "$repo_root" || return 1
+        composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader || return 1
+        npm ci || return 1
+    ) || return 1
+
+    cc_d5sr_info 'Validazione e build'
+    (
+        cd "$repo_root" || return 1
+        npm run check || return 1
+        npm run build || return 1
+        composer check:syntax || return 1
+    ) || return 1
+
+    version="$(php -r '$data = file_get_contents($argv[1]); if (preg_match("/^[[:space:]]*\\*[[:space:]]*Version:[[:space:]]*([^[:space:]]+)/m", $data, $m)) { echo $m[1]; }' "$repo_root/cc-divi5-search-results.php")"
+    [[ -n "$version" ]] || {
+        cc_d5sr_error 'impossibile rilevare la versione dal plugin header'
+        return 1
+    }
+
+    commit="$(git -C "$repo_root" rev-parse HEAD)" || return 1
+    branch="$(git -C "$repo_root" branch --show-current)" || return 1
+    built_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+    mkdir -p "$dist_dir" || return 1
+    stage_parent="$(mktemp -d "${TMPDIR:-/tmp}/cc-d5sr-package.XXXXXX")" || return 1
+    stage_dir="$stage_parent/$plugin_slug"
+    mkdir -p "$stage_dir/scripts" "$stage_dir/styles" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    cc_d5sr_copy_path "$repo_root/cc-divi5-search-results.php" "$stage_dir/" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    local path
+    for path in assets includes modules shortcodes languages vendor modules-json; do
+        cc_d5sr_copy_path "$repo_root/$path" "$stage_dir/" || {
+            rm -rf "$stage_parent"
+            return 1
+        }
+    done
+
+    for path in LICENSE README.md CHANGELOG.md; do
+        cc_d5sr_copy_path "$repo_root/$path" "$stage_dir/" || {
+            rm -rf "$stage_parent"
+            return 1
+        }
+    done
+
+    cc_d5sr_copy_path "$repo_root/scripts/bundle.js" "$stage_dir/scripts/" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    cc_d5sr_copy_path "$repo_root/styles/vb-bundle.css" "$stage_dir/styles/" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    [[ -n "$branch" ]] || branch='detached'
+
+    CC_D5SR_MANIFEST_PLUGIN="$plugin_slug" \
+    CC_D5SR_MANIFEST_VERSION="$version" \
+    CC_D5SR_MANIFEST_COMMIT="$commit" \
+    CC_D5SR_MANIFEST_BRANCH="$branch" \
+    CC_D5SR_MANIFEST_BUILT_AT="$built_at" \
+        php -r '
+            $manifest = array(
+                "plugin"       => getenv("CC_D5SR_MANIFEST_PLUGIN"),
+                "version"      => getenv("CC_D5SR_MANIFEST_VERSION"),
+                "git_commit"   => getenv("CC_D5SR_MANIFEST_COMMIT"),
+                "git_branch"   => getenv("CC_D5SR_MANIFEST_BRANCH"),
+                "built_at_utc" => getenv("CC_D5SR_MANIFEST_BUILT_AT"),
+            );
+            file_put_contents($argv[1], json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+        ' "$stage_dir/build-manifest.json" || {
+            rm -rf "$stage_parent"
+            return 1
+        }
+
+    archive="$dist_dir/${plugin_slug}-${version}-${commit:0:12}.tar.gz"
+    tar -C "$stage_parent" -czf "$archive" "$plugin_slug" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    archive_sha="$(cc_d5sr_sha256 "$archive")" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    printf '%s  %s\n' "$archive_sha" "$(basename "$archive")" > "$archive.sha256" || {
+        rm -rf "$stage_parent"
+        return 1
+    }
+
+    rm -rf "$stage_parent"
+
+    CC_D5SR_PACKAGE_PATH="$archive"
+    CC_D5SR_PACKAGE_SHA256="$archive_sha"
+    CC_D5SR_PACKAGE_VERSION="$version"
+    CC_D5SR_PACKAGE_COMMIT="$commit"
+
+    cc_d5sr_ok "pacchetto creato: $archive"
+    cc_d5sr_ok "SHA-256: $archive_sha"
+}
+
+cc_d5sr_deploy_remote() {
+    local target="$1"
+    local ssh_port="$2"
+    local deploy_mode="$3"
+    local container="$4"
+    local wp_root="$5"
+    local remote_state="$6"
+    local plugin_slug="$7"
+    local activate="$8"
+    local backup_keep="$9"
+    local remote_archive
+
+    remote_archive="$remote_state/incoming/$(basename "$CC_D5SR_PACKAGE_PATH")"
+
+    cc_d5sr_info "Preparazione destinazione remota: $target"
+    ssh -p "$ssh_port" "$target" \
+        "mkdir -p '$remote_state/incoming' '$remote_state/backups' '$remote_state/stage'" || return 1
+
+    cc_d5sr_info 'Upload pacchetto'
+    cat "$CC_D5SR_PACKAGE_PATH" | ssh -p "$ssh_port" "$target" "cat > '$remote_archive'" || return 1
+
+    cc_d5sr_info 'Verifica checksum remoto'
+    ssh -p "$ssh_port" "$target" bash -s -- "$remote_archive" "$CC_D5SR_PACKAGE_SHA256" <<'REMOTE_SHA' || return 1
+remote_sha_main() {
+archive="$1"
+expected="$2"
+
+if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$archive" | awk '{print $1}')" || return 1
+elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$archive" | awk '{print $1}')" || return 1
+else
+    printf 'ERRORE: sha256sum o shasum non disponibile sulla VM.\n' >&2
+    return 1
+fi
+
+if [[ "$actual" != "$expected" ]]; then
+    printf 'ERRORE: checksum remoto non corrispondente.\n' >&2
+    return 1
+fi
+}
+
+remote_sha_main "$@"
+REMOTE_SHA
+
+    cc_d5sr_info 'Backup e deploy atomico'
+    ssh -p "$ssh_port" "$target" bash -s -- \
+        "$deploy_mode" \
+        "$container" \
+        "$wp_root" \
+        "$plugin_slug" \
+        "$remote_archive" \
+        "$remote_state" \
+        "$activate" \
+        "$backup_keep" <<'REMOTE_DEPLOY'
+remote_deploy_main() {
+mode="$1"
+container="$2"
+wp_root="$3"
+plugin_slug="$4"
+archive="$5"
+state_dir="$6"
+activate="$7"
+backup_keep="$8"
+
+timestamp="$(date '+%Y%m%d-%H%M%S')"
+stage_parent="$state_dir/stage/$timestamp"
+package_dir="$stage_parent/$plugin_slug"
+backup_file="$state_dir/backups/${plugin_slug}-${timestamp}.tar.gz"
+plugin_parent="$wp_root/wp-content/plugins"
+target="$plugin_parent/$plugin_slug"
+new_target="$plugin_parent/.${plugin_slug}.new-${timestamp}"
+old_target="$plugin_parent/.${plugin_slug}.old-${timestamp}"
+had_previous=0
+
+remote_error() {
+    printf 'ERRORE: %s\n' "$*" >&2
+}
+
+remote_cleanup() {
+    rm -rf "$stage_parent"
+    rm -f "$archive"
+}
+
+remote_prune_backups() {
+    local keep="$1"
+
+    [[ "$keep" =~ ^[0-9]+$ ]] || return 1
+    (( keep > 0 )) || return 0
+
+    find "$state_dir/backups" -maxdepth 1 -type f -name "${plugin_slug}-*.tar.gz" -print \
+        | sort -r \
+        | awk -v keep="$keep" 'NR > keep' \
+        | while IFS= read -r old_backup; do
+            [[ -n "$old_backup" ]] && rm -f "$old_backup"
+        done
+}
+
+remote_rollback_host() {
+    rm -rf "$target"
+
+    if [[ -d "$old_target" ]]; then
+        mv "$old_target" "$target" || return 1
+    elif (( had_previous == 1 )) && [[ -f "$backup_file" ]]; then
+        tar -C "$plugin_parent" -xzf "$backup_file" || return 1
+    fi
+}
+
+remote_rollback_docker() {
+    docker exec "$container" sh -lc "rm -rf '$target'" || return 1
+
+    if docker exec "$container" sh -lc "test -d '$old_target'"; then
+        docker exec "$container" sh -lc "mv '$old_target' '$target'" || return 1
+    elif (( had_previous == 1 )) && [[ -f "$backup_file" ]]; then
+        cat "$backup_file" | docker exec -i "$container" tar -C "$plugin_parent" -xzf - || return 1
+    fi
+}
+
+remote_activate_host() {
+    (( activate == 1 )) || return 0
+
+    command -v wp >/dev/null 2>&1 || {
+        remote_error 'WP-CLI non disponibile sulla VM host'
+        return 1
+    }
+
+    wp --allow-root --path="$wp_root" plugin activate "$plugin_slug" || return 1
+    wp --allow-root --path="$wp_root" plugin status "$plugin_slug" || return 1
+}
+
+remote_activate_docker() {
+    (( activate == 1 )) || return 0
+
+    docker exec "$container" sh -lc "command -v wp >/dev/null 2>&1" || {
+        remote_error 'WP-CLI non disponibile nel container WordPress'
+        return 1
+    }
+
+    docker exec "$container" wp --allow-root --path="$wp_root" plugin activate "$plugin_slug" || return 1
+    docker exec "$container" wp --allow-root --path="$wp_root" plugin status "$plugin_slug" || return 1
+}
+
+mkdir -p "$stage_parent" "$state_dir/backups" || {
+    remote_error 'impossibile creare staging e backup remoti'
+    return 1
+}
+
+tar -C "$stage_parent" -xzf "$archive" || {
+    remote_error 'estrazione pacchetto fallita'
+    remote_cleanup
+    return 1
+}
+
+[[ -f "$package_dir/cc-divi5-search-results.php" ]] || {
+    remote_error 'entrypoint plugin assente nel pacchetto'
+    remote_cleanup
+    return 1
+}
+
+if [[ "$mode" == 'auto' ]]; then
+    if [[ -n "$container" ]]; then
+        mode='docker'
+    else
+        mode='host'
+    fi
+fi
+
+case "$mode" in
+    host)
+        command -v php >/dev/null 2>&1 || {
+            remote_error 'PHP CLI non disponibile sulla VM host'
+            remote_cleanup
+            return 1
+        }
+
+        mkdir -p "$plugin_parent" || {
+            remote_error 'directory plugin host non disponibile'
+            remote_cleanup
+            return 1
+        }
+
+        if [[ -d "$target" ]]; then
+            tar -C "$plugin_parent" -czf "$backup_file" "$plugin_slug" || {
+                remote_error 'backup host fallito'
+                remote_cleanup
+                return 1
+            }
+            had_previous=1
+        fi
+
+        rm -rf "$new_target" "$old_target"
+        cp -R "$package_dir" "$new_target" || {
+            remote_error 'copia staging host fallita'
+            remote_cleanup
+            return 1
+        }
+
+        php -l "$new_target/cc-divi5-search-results.php" >/dev/null || {
+            remote_error 'PHP lint remoto fallito sul nuovo pacchetto'
+            rm -rf "$new_target"
+            remote_cleanup
+            return 1
+        }
+
+        if (( had_previous == 1 )); then
+            mv "$target" "$old_target" || {
+                remote_error 'impossibile spostare la versione precedente'
+                rm -rf "$new_target"
+                remote_cleanup
+                return 1
+            }
+        fi
+
+        mv "$new_target" "$target" || {
+            remote_error 'switch atomico host fallito'
+            remote_rollback_host
+            remote_cleanup
+            return 1
+        }
+
+        remote_activate_host || {
+            remote_error 'attivazione/verifica host fallita; rollback in corso'
+            remote_rollback_host
+            remote_cleanup
+            return 1
+        }
+
+        rm -rf "$old_target"
+        ;;
+
+    docker)
+        [[ -n "$container" ]] || {
+            remote_error 'CC_D5SR_DEPLOY_CONTAINER richiesto in modalità docker'
+            remote_cleanup
+            return 1
+        }
+
+        command -v docker >/dev/null 2>&1 || {
+            remote_error 'Docker non disponibile sulla VM'
+            remote_cleanup
+            return 1
+        }
+
+        docker inspect "$container" >/dev/null 2>&1 || {
+            remote_error "container non trovato: $container"
+            remote_cleanup
+            return 1
+        }
+
+        docker exec "$container" sh -lc "command -v php >/dev/null 2>&1 && command -v tar >/dev/null 2>&1" || {
+            remote_error 'PHP CLI o tar non disponibile nel container WordPress'
+            remote_cleanup
+            return 1
+        }
+
+        docker exec "$container" sh -lc "mkdir -p '$plugin_parent'" || {
+            remote_error 'directory plugin container non disponibile'
+            remote_cleanup
+            return 1
+        }
+
+        if docker exec "$container" sh -lc "test -d '$target'"; then
+            docker exec "$container" tar -C "$plugin_parent" -czf - "$plugin_slug" > "$backup_file" || {
+                remote_error 'backup container fallito'
+                remote_cleanup
+                return 1
+            }
+            had_previous=1
+        fi
+
+        docker exec "$container" sh -lc "rm -rf '$new_target' '$old_target' && mkdir -p '$new_target'" || {
+            remote_error 'staging container fallito'
+            remote_cleanup
+            return 1
+        }
+
+        docker cp "$package_dir/." "$container:$new_target/" || {
+            remote_error 'docker cp fallito'
+            docker exec "$container" sh -lc "rm -rf '$new_target'" >/dev/null 2>&1
+            remote_cleanup
+            return 1
+        }
+
+        docker exec "$container" php -l "$new_target/cc-divi5-search-results.php" >/dev/null || {
+            remote_error 'PHP lint nel container fallito'
+            docker exec "$container" sh -lc "rm -rf '$new_target'" >/dev/null 2>&1
+            remote_cleanup
+            return 1
+        }
+
+        if (( had_previous == 1 )); then
+            docker exec "$container" sh -lc "mv '$target' '$old_target'" || {
+                remote_error 'impossibile spostare la versione precedente nel container'
+                docker exec "$container" sh -lc "rm -rf '$new_target'" >/dev/null 2>&1
+                remote_cleanup
+                return 1
+            }
+        fi
+
+        docker exec "$container" sh -lc "mv '$new_target' '$target'" || {
+            remote_error 'switch atomico container fallito'
+            remote_rollback_docker
+            remote_cleanup
+            return 1
+        }
+
+        remote_activate_docker || {
+            remote_error 'attivazione/verifica container fallita; rollback in corso'
+            remote_rollback_docker
+            remote_cleanup
+            return 1
+        }
+
+        docker exec "$container" sh -lc "rm -rf '$old_target'"
+        ;;
+
+    *)
+        remote_error "modalità deploy non valida: $mode"
+        remote_cleanup
+        return 1
+        ;;
+esac
+
+remote_prune_backups "$backup_keep" || {
+    remote_error 'deploy riuscito, ma pulizia backup fallita'
+    remote_cleanup
+    return 1
+}
+
+remote_cleanup
+
+printf 'OK: deploy completato\n'
+if (( had_previous == 1 )); then
+    printf 'Backup: %s\n' "$backup_file"
+else
+    printf 'Backup: nessuna versione precedente\n'
+fi
+}
+
+remote_deploy_main "$@"
+REMOTE_DEPLOY
+}
+
+cc_d5sr_main() {
+    local action=''
+    local repo_root dist_dir plugin_slug
+    local deploy_target deploy_mode deploy_container remote_wp_root remote_state
+    local ssh_port activate backup_keep
+
+    cc_d5sr_init_colors || return 1
+
+    while (($#)); do
+        case "$1" in
+            --dry-run)
+                action='dry-run'
+                ;;
+            --package-only)
+                action='package-only'
+                ;;
+            --apply)
+                action='apply'
+                ;;
+            -h|--help)
+                cc_d5sr_usage
+                return 0
+                ;;
+            *)
+                cc_d5sr_error "argomento non riconosciuto: $1"
+                cc_d5sr_usage >&2
+                return 1
+                ;;
+        esac
+        shift
+    done
+
+    [[ -n "$action" ]] || {
+        cc_d5sr_error 'specificare --dry-run, --package-only o --apply'
+        cc_d5sr_usage >&2
+        return 1
+    }
+
+    for command_name in git php composer npm tar awk find sort; do
+        cc_d5sr_require_command "$command_name" || return 1
+    done
+
+    if [[ "$action" == 'apply' ]]; then
+        cc_d5sr_require_command ssh || return 1
+    fi
+
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        cc_d5sr_error 'eseguire lo script dentro il repository Git'
+        return 1
+    }
+
+    plugin_slug='cc-divi5-search-results'
+    dist_dir="$repo_root/dist"
+    deploy_target="${CC_D5SR_DEPLOY_TARGET:-}"
+    deploy_mode="${CC_D5SR_DEPLOY_MODE:-auto}"
+    deploy_container="${CC_D5SR_DEPLOY_CONTAINER:-}"
+    remote_wp_root="${CC_D5SR_REMOTE_WP_ROOT:-/var/www/html}"
+    remote_state="${CC_D5SR_REMOTE_STATE_DIR:-.local/state/cc-divi5-search-results}"
+    ssh_port="${CC_D5SR_SSH_PORT:-22}"
+    activate="${CC_D5SR_ACTIVATE:-1}"
+    backup_keep="${CC_D5SR_BACKUP_KEEP:-10}"
+
+    cc_d5sr_validate_mode "$deploy_mode" || return 1
+    cc_d5sr_validate_integer "$ssh_port" CC_D5SR_SSH_PORT || return 1
+    cc_d5sr_validate_integer "$activate" CC_D5SR_ACTIVATE || return 1
+    cc_d5sr_validate_integer "$backup_keep" CC_D5SR_BACKUP_KEEP || return 1
+    cc_d5sr_validate_integer "${CC_D5SR_REQUIRE_CLEAN:-1}" CC_D5SR_REQUIRE_CLEAN || return 1
+    cc_d5sr_validate_remote_value "$remote_wp_root" CC_D5SR_REMOTE_WP_ROOT || return 1
+    cc_d5sr_validate_remote_value "$remote_state" CC_D5SR_REMOTE_STATE_DIR || return 1
+
+    if [[ -n "$deploy_target" ]]; then
+        cc_d5sr_validate_remote_value "$deploy_target" CC_D5SR_DEPLOY_TARGET || return 1
+    fi
+
+    if [[ -n "$deploy_container" ]]; then
+        cc_d5sr_validate_remote_value "$deploy_container" CC_D5SR_DEPLOY_CONTAINER || return 1
+    fi
+
+    if [[ "$activate" != '0' && "$activate" != '1' ]]; then
+        cc_d5sr_error 'CC_D5SR_ACTIVATE deve essere 0 o 1'
+        return 1
+    fi
+
+    cc_d5sr_build_package "$repo_root" "$dist_dir" "$plugin_slug" || return 1
+
+    case "$action" in
+        package-only)
+            printf '%s\n' "$CC_D5SR_PACKAGE_PATH"
+            return 0
+            ;;
+        dry-run)
+            cc_d5sr_info 'Dry-run completato: nessun collegamento SSH e nessuna modifica remota'
+            printf 'Pacchetto: %s\n' "$CC_D5SR_PACKAGE_PATH"
+            printf 'SHA-256:  %s\n' "$CC_D5SR_PACKAGE_SHA256"
+            printf 'Target:   %s\n' "${deploy_target:-<non impostato>}"
+            printf 'Modalità: %s\n' "$deploy_mode"
+            printf 'Container:%s\n' " ${deploy_container:-<nessuno>}"
+            printf 'WP root:  %s\n' "$remote_wp_root"
+            return 0
+            ;;
+        apply)
+            [[ -n "$deploy_target" ]] || {
+                cc_d5sr_error 'CC_D5SR_DEPLOY_TARGET è obbligatorio per --apply'
+                return 1
+            }
+
+            cc_d5sr_deploy_remote \
+                "$deploy_target" \
+                "$ssh_port" \
+                "$deploy_mode" \
+                "$deploy_container" \
+                "$remote_wp_root" \
+                "$remote_state" \
+                "$plugin_slug" \
+                "$activate" \
+                "$backup_keep" || return 1
+
+            cc_d5sr_ok "deploy completato su $deploy_target"
+            ;;
+    esac
+}
+
+cc_d5sr_main "$@"
