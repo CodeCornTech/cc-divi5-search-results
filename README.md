@@ -125,9 +125,10 @@ npm run build
 After any change to `package.json` or `.npmrc`, reset the local dependency tree before validating:
 
 ```bash
-rm -rf node_modules package-lock.json
-npm install
+npm run reset-install
 ```
+
+`reset-install` removes `node_modules` and `package-lock.json`, then performs a fresh install using the repository `.npmrc` policy.
 
 Validation:
 
