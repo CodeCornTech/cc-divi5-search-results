@@ -17,7 +17,7 @@ The `0.1.0` development branch currently includes:
 - repeatable post-type rules for labels, badge, accent, image, excerpt, date and CTA;
 - accessible result count, search form, result cards, pagination and empty state;
 - shared rendering used by both the native module and `[cc_divi5_search_results]`;
-- Visual Builder TypeScript sources and build configuration;
+- Visual Builder TypeScript sources, Divi-compatible compiler configuration and webpack build;
 - frontend CSS with responsive grid behavior.
 
 The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
@@ -117,6 +117,7 @@ Install and build:
 ```bash
 composer install
 npm install
+npm run check
 npm run build
 ```
 
@@ -124,8 +125,13 @@ Validation:
 
 ```bash
 composer check:syntax
+npm run check:types
 npm run check:json
 ```
+
+`ts-loader` performs type checking during `npm run build`; it is not configured with `transpileOnly`. The compiler configuration intentionally follows the compatibility surface used by the official Divi 5 example modules: emitted ES5 JavaScript, classic React JSX and no strict-null checking inside the published Divi type sources.
+
+The npm installation can report peer-resolution and deprecation warnings from the `divi-types*` compatibility aliases used by Elegant Themes. Those warnings are not treated as a successful build: the authoritative result is the exit status of `npm run check` and `npm run build`. Do not run `npm audit fix --force`, because it can replace Divi-compatible development dependencies with breaking versions.
 
 After `npm run build`, the generated files are:
 
@@ -154,7 +160,7 @@ Those capabilities will be added in later reviewable increments without changing
 
 ## Documentation rule
 
-Every pull request that changes behavior, controls, requirements, generated paths or public APIs must update this README in the same pull request. Documentation may describe merged or included code only; planned behavior belongs exclusively in **Not implemented yet**.
+Every pull request that changes behavior, controls, requirements, generated paths, build commands, dependency requirements or public APIs must update this README in the same pull request. Documentation may describe merged or included code only; planned behavior belongs exclusively in **Not implemented yet**.
 
 ## License
 
