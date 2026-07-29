@@ -6,7 +6,18 @@ import { ModuleStyles } from './styles';
 import { SearchResultsEditProps } from './types';
 
 export const SearchResultsEdit = (props: SearchResultsEditProps): ReactElement => {
-  const { attrs, childrenIds, elements, id, name } = props;
+  const {
+    attrs,
+    childrenIds = [],
+    elements,
+    id,
+    name,
+  } = props;
+
+  if (! elements) {
+    return <></>;
+  }
+
   const query = attrs.query?.innerContent?.desktop?.value;
 
   return (
