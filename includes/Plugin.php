@@ -66,6 +66,26 @@ final class Plugin {
             return;
         }
 
+        $builder_data_handle = 'cc-divi5-search-results-vb-data';
+
+        wp_register_script(
+            $builder_data_handle,
+            false,
+            array(),
+            CC_D5SR_VERSION,
+            true
+        );
+
+        wp_add_inline_script(
+            $builder_data_handle,
+            'window.ccD5srBuilderData = ' . wp_json_encode(
+                array(
+                    'postTypes' => self::getBuilderPostTypeOptions(),
+                )
+            ) . ';',
+            'before'
+        );
+
         \ET\Builder\VisualBuilder\Assets\PackageBuildManager::register_package_build(
             array(
                 'name'    => 'cc-divi5-search-results-vb',
@@ -73,6 +93,7 @@ final class Plugin {
                 'script'  => array(
                     'src'                => CC_D5SR_URL . 'scripts/bundle.js',
                     'deps'               => array(
+                        $builder_data_handle,
                         'divi-module-library',
                         'divi-vendor-wp-hooks',
                     ),
@@ -98,5 +119,62 @@ final class Plugin {
                 )
             );
         }
+    }
+
+    /**
+     * Return public WordPress post types as Divi select options.
+     *
+     * @return array<string, array{label:string}>
+     */
+    private static function getBuilderPostTypeOptions(): array {
+        $post_type_objects = get_post_types(
+            array(
+                'public' => true,
+            ),
+            'objects'
+        );
+
+        unset( $post_type_objects['attachment'] );
+
+        $options = array();
+
+        foreach ( $post_type_objects as $post_type_slug => $post_type_object ) {
+            if ( ! $post_type_object instanceof \WP_Post_Type ) {
+                continue;
+            }
+
+            $label = $post_type_object->labels->name ?: $post_type_object->label;
+            $label = $label ?: $post_type_slug;
+
+            $options[ $post_type_slug ] = array(
+                'label' => sprintf(
+                    /* translators: 1: post type label, 2: post type slug. */
+                    __( '%1$s (%2$s)', 'cc-divi5-search-results' ),
+                    $label,
+                    $post_type_slug
+                ),
+            );
+        }
+
+        uasort(
+            $options,
+            static function ( array $left, array $right ): int {
+                return strnatcasecmp( $left['label'], $right['label'] );
+            }
+        );
+
+        /**
+         * Filter post types exposed by the CC Result Type selector.
+         *
+         * @param array<string, array{label:string}> $options           Divi select options keyed by post type slug.
+         * @param array<string, \WP_Post_Type>       $post_type_objects Public post type objects, excluding attachments.
+         */
+        $options = apply_filters(
+            'cc_d5sr_builder_post_type_options',
+            $options,
+            $post_type_objects
+        );
+
+        return is_array( $options ) ? $options : array();
     }
 }
