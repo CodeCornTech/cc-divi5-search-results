@@ -15,6 +15,10 @@
 - Repository `.npmrc` with strict engine enforcement and deterministic handling of incompatible Divi peer ranges.
 - Lockfile-safe `npm run reset-install` for rebuilding `node_modules` through `npm ci`.
 - Git exclusion for local proprietary references under `.reference/`.
+- Runtime-only package generation with build manifest and SHA-256 checksum.
+- VM deployment workflow supporting host and Docker WordPress installations.
+- Timestamped remote backups, retention pruning and automatic rollback on failed remote validation or activation.
+- Composer commands `package`, `deploy:check` and `deploy`.
 
 ### Changed
 
@@ -25,3 +29,4 @@
 - Development dependencies now include the transitive declarations required by the Divi 5.9.0 type packages.
 - Development documentation now requires committed npm and Composer lockfiles to remain synchronized with their manifests.
 - Release documentation now distinguishes ignored source-build outputs from files required in a distributable plugin archive.
+- Deployment documentation now defines reproducible packaging, dry-run behavior, remote requirements, backup location and rollback guarantees.
