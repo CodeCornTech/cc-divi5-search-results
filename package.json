@@ -13,7 +13,8 @@
     "build": "NODE_ENV=production webpack --config webpack.config.js --progress",
     "check": "npm run check:types && npm run check:json",
     "check:types": "tsc --noEmit",
-    "check:json": "node scripts/check-json.cjs"
+    "check:json": "node scripts/check-json.cjs",
+    "reset-install": "rm -rf node_modules package-lock.json && npm install"
   },
   "devDependencies": {
     "@divi/types": "npm:divi-types@^1.0.10",
