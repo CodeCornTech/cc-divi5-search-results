@@ -19,6 +19,8 @@ The `0.1.0` development branch currently includes:
 - shared rendering used by both the native module and `[cc_divi5_search_results]`;
 - Visual Builder TypeScript sources, Divi-compatible compiler configuration and webpack build;
 - repository-level npm configuration for the incompatible peer ranges published by the Divi 5 type aliases;
+- deterministic runtime packaging with build manifest and SHA-256 checksum;
+- verified VM deployment for host and Docker WordPress installations, including backup and automatic rollback;
 - frontend CSS with responsive grid behavior.
 
 The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
@@ -153,7 +155,118 @@ modules-json/search-results/module.json
 modules-json/search-result-type/module.json
 ```
 
-Local proprietary references, including an extracted Divi theme under `.reference/`, are ignored by Git and must never be committed. A source checkout is therefore not a distributable plugin archive by itself: release packaging must run the build and include the generated Visual Builder assets and module metadata.
+Local proprietary references, including an extracted Divi theme under `.reference/`, are ignored by Git and must never be committed.
+
+## Runtime package
+
+A source checkout is not a distributable plugin archive by itself. The package command performs a clean dependency install from both committed lockfiles, runs all TypeScript/JSON/PHP checks, builds the Visual Builder assets and creates a runtime-only archive under `dist/`:
+
+```bash
+composer package
+```
+
+The generated archive contains:
+
+```text
+cc-divi5-search-results.php
+assets/
+includes/
+modules/
+shortcodes/
+languages/
+vendor/
+modules-json/
+scripts/bundle.js
+styles/vb-bundle.css
+README.md
+CHANGELOG.md
+LICENSE
+build-manifest.json
+```
+
+It deliberately excludes `src/`, `node_modules/`, development manifests, local references and repository metadata. A sibling `.sha256` file records the archive checksum. The build manifest records plugin version, exact Git commit, branch and UTC build time.
+
+Packaging requires:
+
+- committed `composer.lock` and `package-lock.json`;
+- a clean working tree unless `CC_D5SR_REQUIRE_CLEAN=0` is set explicitly;
+- successful `composer install --no-dev`, `npm ci`, `npm run check`, `npm run build` and `composer check:syntax`.
+
+## VM deployment
+
+The same workflow deploys the generated runtime archive to a WordPress installation reachable over SSH:
+
+```bash
+composer deploy:check
+composer deploy
+```
+
+`deploy:check` performs the full local package and validation sequence but never opens an SSH connection and never modifies the VM.
+
+`deploy` performs:
+
+1. local clean-tree and lockfile checks;
+2. reproducible package generation;
+3. SSH upload without `scp`;
+4. SHA-256 verification on the VM;
+5. timestamped backup of the installed plugin when present;
+6. staged copy into the WordPress plugins directory;
+7. remote PHP lint before switching versions;
+8. same-filesystem atomic directory switch;
+9. optional activation and status verification through WP-CLI;
+10. automatic rollback when the remote lint, switch, activation or status check fails;
+11. retention pruning for old backups.
+
+### Required deployment variable
+
+```bash
+export CC_D5SR_DEPLOY_TARGET="user@example-host"
+```
+
+### Docker WordPress example
+
+```bash
+export CC_D5SR_DEPLOY_TARGET="user@example-host"
+export CC_D5SR_DEPLOY_MODE="docker"
+export CC_D5SR_DEPLOY_CONTAINER="wordpress"
+export CC_D5SR_REMOTE_WP_ROOT="/var/www/html"
+
+composer deploy:check
+composer deploy
+```
+
+The VM must provide Docker. The selected container must provide `php`, `tar` and, when activation is enabled, `wp`.
+
+### Host WordPress example
+
+```bash
+export CC_D5SR_DEPLOY_TARGET="user@example-host"
+export CC_D5SR_DEPLOY_MODE="host"
+export CC_D5SR_REMOTE_WP_ROOT="/var/www/html"
+
+composer deploy:check
+composer deploy
+```
+
+The host must provide `php` and, when activation is enabled, `wp`.
+
+### Deployment variables
+
+```text
+CC_D5SR_DEPLOY_TARGET       required for deploy; SSH user/host
+CC_D5SR_DEPLOY_MODE         auto, host or docker; default auto
+CC_D5SR_DEPLOY_CONTAINER    required by docker mode
+CC_D5SR_REMOTE_WP_ROOT      default /var/www/html
+CC_D5SR_REMOTE_STATE_DIR    default .local/state/cc-divi5-search-results
+CC_D5SR_SSH_PORT            default 22
+CC_D5SR_ACTIVATE            1 or 0; default 1
+CC_D5SR_BACKUP_KEEP         default 10; 0 disables pruning
+CC_D5SR_REQUIRE_CLEAN       1 or 0; default 1
+CC_D5SR_COLOR               auto, always or never
+NO_COLOR                    disables ANSI colors
+```
+
+The default remote state path is relative to the SSH user's home directory. It contains incoming archives, temporary extraction directories and timestamped backups. No credentials or VM-specific values belong in the repository.
 
 ## Not implemented yet
 
@@ -168,13 +281,13 @@ The README deliberately does not present the following as available:
 - image fallback and ratio controls;
 - card presets;
 - AJAX navigation;
-- automated release archive generation.
+- automated GitHub release publication.
 
 Those capabilities will be added in later reviewable increments without changing the shared renderer contract.
 
 ## Documentation rule
 
-Every pull request that changes behavior, controls, requirements, generated paths, build commands, dependency requirements or public APIs must update this README in the same pull request. Documentation may describe merged or included code only; planned behavior belongs exclusively in **Not implemented yet**.
+Every pull request that changes behavior, controls, requirements, generated paths, build commands, dependency requirements, deployment behavior or public APIs must update this README in the same pull request. Documentation may describe merged or included code only; planned behavior belongs exclusively in **Not implemented yet**.
 
 ## License
 
