@@ -19,6 +19,9 @@
 - VM deployment workflow supporting host and Docker WordPress installations.
 - Timestamped remote backups, retention pruning and automatic rollback on failed remote validation or activation.
 - Composer commands `package`, `deploy:check` and `deploy`.
+- Barbagia-specific Composer commands `deploy:barbagia:check` and `deploy:barbagia`.
+- Dedicated Barbagia wrapper pinned to `/home/fgirolami/docker/barbagiamusei/compose.yaml` and the `wp_cron` Compose service.
+- Dynamic resolution and validation of the real `wp_cron` container before remote deployment.
 
 ### Changed
 
@@ -30,4 +33,6 @@
 - Development documentation now requires committed npm and Composer lockfiles to remain synchronized with their manifests.
 - Release documentation now distinguishes ignored source-build outputs from files required in a distributable plugin archive.
 - Deployment documentation now defines reproducible packaging, dry-run behavior, remote requirements, backup location and rollback guarantees.
+- Generic Docker deployment documentation now distinguishes Docker container names or IDs from Compose service names.
+- Barbagia deployment no longer depends on the current SSH directory or a hardcoded container name.
 - Documentation now records that runtime packaging passed a disposable mock-repository test while the first real VM deployment remains an integration gate.
