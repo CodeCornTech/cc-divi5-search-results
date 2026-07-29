@@ -1,5 +1,9 @@
 import { ModuleEditProps } from '@divi/module-library';
-import { FormatBreakpointStateAttr, InternalAttrs, type Element } from '@divi/types';
+import {
+  FormatBreakpointStateAttr,
+  InternalAttrs,
+  type Element,
+} from '@divi/types';
 
 export interface SearchResultsQueryValue {
   source?: string;
@@ -21,8 +25,28 @@ export interface SearchResultsEmptyValue {
 export interface SearchResultsAttrs extends InternalAttrs {
   module?: {
     meta?: Element.Meta.Attributes;
-    advanced?: Record<string, unknown>;
-    decoration?: Record<string, unknown>;
+    advanced?: {
+      link?: Element.Advanced.Link.Attributes;
+      htmlAttributes?: Element.Advanced.IdClasses.Attributes;
+      text?: Element.Advanced.Text.Attributes;
+    };
+    decoration?: Element.Decoration.PickedAttributes<
+      'animation' |
+      'background' |
+      'border' |
+      'boxShadow' |
+      'disabledOn' |
+      'filters' |
+      'overflow' |
+      'position' |
+      'scroll' |
+      'sizing' |
+      'spacing' |
+      'sticky' |
+      'transform' |
+      'transition' |
+      'zIndex'
+    >;
   };
   query?: { innerContent?: FormatBreakpointStateAttr<SearchResultsQueryValue> };
   display?: { innerContent?: FormatBreakpointStateAttr<SearchResultsDisplayValue> };
