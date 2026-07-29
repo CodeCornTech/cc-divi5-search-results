@@ -30,3 +30,4 @@
 - Development documentation now requires committed npm and Composer lockfiles to remain synchronized with their manifests.
 - Release documentation now distinguishes ignored source-build outputs from files required in a distributable plugin archive.
 - Deployment documentation now defines reproducible packaging, dry-run behavior, remote requirements, backup location and rollback guarantees.
+- Documentation now records that runtime packaging passed a disposable mock-repository test while the first real VM deployment remains an integration gate.
