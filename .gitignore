@@ -3,6 +3,7 @@
 .env.*
 .idea/
 .vscode/
+.reference/
 node_modules/
 vendor/
 build/
