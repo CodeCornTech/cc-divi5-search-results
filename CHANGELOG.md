@@ -13,6 +13,7 @@
 - README documentation contract requiring code and documentation to remain synchronized in every PR.
 - Explicit TypeScript validation through `npm run check:types` and aggregate validation through `npm run check`.
 - Repository `.npmrc` with strict engine enforcement and deterministic handling of incompatible Divi peer ranges.
+- `npm run reset-install` for a clean dependency-tree rebuild after manifest or npm-policy changes.
 
 ### Changed
 
