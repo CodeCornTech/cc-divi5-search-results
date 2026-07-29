@@ -8,10 +8,15 @@
     },
     "autoload": {
         "psr-4": {
+            "CodeCorn\\Divi5SearchResults\\Modules\\": "modules/",
+            "CodeCorn\\Divi5SearchResults\\Shortcodes\\": "shortcodes/",
             "CodeCorn\\Divi5SearchResults\\": "includes/"
         }
     },
     "config": {
         "sort-packages": true
+    },
+    "scripts": {
+        "check:syntax": "find . -path ./vendor -prune -o -path ./node_modules -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l"
     }
 }

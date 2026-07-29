@@ -1,0 +1,128 @@
+.cc-d5sr {
+  --cc-d5sr-gap: clamp(16px, 2vw, 28px);
+}
+
+.cc-d5sr__inner {
+  display: grid;
+  gap: var(--cc-d5sr-gap);
+}
+
+.cc-d5sr__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  align-items: baseline;
+}
+
+.cc-d5sr__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.cc-d5sr__search input,
+.cc-d5sr__search button {
+  min-height: 46px;
+  padding: 10px 14px;
+  font: inherit;
+}
+
+.cc-d5sr__grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cc-d5sr-columns, 3), minmax(0, 1fr));
+  gap: var(--cc-d5sr-gap);
+}
+
+.cc-d5sr__card {
+  overflow: hidden;
+  border: 1px solid #d7d9dc;
+  border-color: color-mix(in srgb, var(--cc-d5sr-accent) 28%, transparent);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cc-d5sr__image {
+  display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.cc-d5sr__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cc-d5sr__content {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.cc-d5sr__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.85em;
+}
+
+.cc-d5sr__badge {
+  display: inline-flex;
+  padding: 0.25em 0.65em;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--cc-d5sr-accent);
+}
+
+.cc-d5sr__title {
+  margin: 0;
+  font-size: clamp(1.1rem, 1.8vw, 1.45rem);
+}
+
+.cc-d5sr__excerpt {
+  margin: 0;
+}
+
+.cc-d5sr__cta {
+  justify-self: start;
+  font-weight: 700;
+}
+
+.cc-d5sr__pagination .page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cc-d5sr__pagination a,
+.cc-d5sr__pagination span {
+  display: inline-flex;
+  min-width: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+.cc-d5sr__empty {
+  padding: clamp(24px, 4vw, 48px);
+  border: 1px dashed currentColor;
+  border-radius: 12px;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .cc-d5sr__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .cc-d5sr__search,
+  .cc-d5sr__grid {
+    grid-template-columns: 1fr;
+  }
+}

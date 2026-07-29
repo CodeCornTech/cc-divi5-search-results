@@ -2,72 +2,159 @@
 
 > Native Divi 5 search results. The Blog Module workaround ends here.
 
-A public, reusable Divi 5 extension for type-aware WordPress search results with full Visual Builder control.
+A public Divi 5 extension for type-aware WordPress search results. The native parent module owns the query and result layout; native child modules act as repeatable rules for individual post types. The optional shortcode calls the same PHP query and rendering services.
 
-## Non-negotiable contract
+## Current implementation
 
-- **Native Divi 5 module first.** No mandatory shortcode, Code Module or copied HTML.
-- **Real WordPress query.** Current search by default; archive/custom sources can be added explicitly.
-- **CPT-first.** Posts, pages and custom post types are treated as distinct result families.
-- **Native configuration repeater.** A parent Search Results module contains child Result Type Rule modules.
-- **Everything editable.** Labels, icons, colors, card variant, image source/fallback, ratio, excerpt, metadata mappings, CTA, filters, count, highlighting, pagination and empty state.
-- **One rendering engine.** The optional shortcode calls the same query, normalization and renderer services as the native module.
-- **Generic core.** No Barbagia Musei post types, labels, colors, meta keys or Theme Builder IDs hardcoded.
+The `0.1.0` development branch currently includes:
 
-## Planned modules
+- safe plugin bootstrap with Composer PSR-4 autoloading and a source-checkout fallback autoloader;
+- isolated search-query resolution that never calls `query_posts()` and never replaces the global `$wp_query`;
+- reuse of the real current WordPress search query when the module runs on a search-results request;
+- an isolated `WP_Query` fallback for Visual Builder previews, non-search pages and shortcode use;
+- the native Divi 5 parent module `codecorn/search-results`;
+- the native configuration child module `codecorn/search-result-type`;
+- repeatable post-type rules for labels, badge, accent, image, excerpt, date and CTA;
+- accessible result count, search form, result cards, pagination and empty state;
+- shared rendering used by both the native module and `[cc_divi5_search_results]`;
+- Visual Builder TypeScript sources and build configuration;
+- frontend CSS with responsive grid behavior.
 
-### `codecorn/search-results`
+The Visual Builder bundle and `modules-json/` metadata are generated locally and are not committed. Server registration consumes the generated `modules-json/` files, so run the build before testing module insertion and editing.
 
-Dynamic parent module controlling:
+## Native module structure
 
-- query source, allowed post types, ordering and results per page;
-- result summary and count;
-- search form and clear action;
-- type filters with counts;
-- grid/list layout and responsive columns;
-- term highlighting;
-- pagination;
-- zero-results experience;
-- complete Content, Design and Advanced settings.
+```text
+codecorn/search-results
+└── codecorn/search-result-type
+    ├── post
+    ├── page
+    └── any registered custom post type
+```
 
-### `codecorn/search-result-type`
+`Result Type Rule` children are configuration objects. They do not render independent frontend cards. The parent reads their saved Divi block attributes and applies them to posts returned by the search query.
 
-Child module used as a native repeater-like rule for each post type/result family:
+## Available parent controls
 
-- post type, state and priority;
-- singular/plural labels, badge and icon;
-- accent color and card preset;
-- image source, fallback, ratio and object-fit;
-- excerpt source, length and suffix;
-- date, location, author, taxonomy and custom-field mappings;
-- CTA text and link behavior;
-- visibility rules when metadata is empty.
+### Query
 
-The child items configure dynamic result cards; they are not manually duplicated content cards.
+- current WordPress search query or isolated query;
+- explicit search term for the isolated query and Visual Builder preview;
+- results per page.
 
-## Shared architecture
+### Display
 
-1. `includes/Query` — current search/archive/custom query resolution.
-2. `includes/Rendering` — accessible shared markup and view models.
-3. `modules` — Divi 5 frontend module definitions.
-4. `src/components` — Visual Builder components.
-5. `shortcodes` — optional compatibility adapter only.
+- result count;
+- search form;
+- one to six desktop columns.
 
-## Target shortcode
+### Empty state
+
+- title;
+- message.
+
+## Available result-type controls
+
+- post type slug;
+- singular, plural and badge labels;
+- rule priority;
+- accent color;
+- image, excerpt and date visibility;
+- excerpt word count;
+- CTA label.
+
+Missing labels fall back to the registered WordPress post-type labels. Missing rules fall back to a generic rule derived from the result's post type.
+
+## Query contract
+
+For `source=current`, the module reads the already-resolved main WordPress search query. It does not alter it.
+
+For `source=isolated`, the plugin creates its own `WP_Query` using the search term, configured result types, result limit and current page. Integrations can adjust only that isolated query through:
+
+```php
+add_filter( 'cc_d5sr_query_args', function ( array $query_args, array $options ): array {
+    return $query_args;
+}, 10, 2 );
+```
+
+## Optional shortcode
 
 ```text
 [cc_divi5_search_results]
 ```
 
-It is an adapter, never the primary implementation.
+Supported attributes in this increment:
 
-## Requirements
+```text
+source="current|isolated"
+search="museum"
+post_types="post,page,event"
+posts_per_page="10"
+columns="3"
+show_summary="on"
+show_search_form="on"
+show_image="on"
+show_excerpt="on"
+show_date="on"
+excerpt_length="28"
+cta_label="View result"
+```
 
-- WordPress 6.6+
-- Divi 5
-- PHP 8.1+
-- Node.js 18+
-- Composer
+The shortcode is an adapter, not the primary implementation.
+
+## Development
+
+Requirements:
+
+- WordPress 6.6+;
+- Divi 5.9.0 reference target for this development increment;
+- PHP 8.1+;
+- Node.js 18+ and npm 10+;
+- Composer.
+
+Install and build:
+
+```bash
+composer install
+npm install
+npm run build
+```
+
+Validation:
+
+```bash
+composer check:syntax
+npm run check:json
+```
+
+After `npm run build`, the generated files are:
+
+```text
+scripts/bundle.js
+styles/vb-bundle.css
+modules-json/search-results/module.json
+modules-json/search-result-type/module.json
+```
+
+## Not implemented yet
+
+The README deliberately does not present the following as available:
+
+- live query results inside the Visual Builder canvas;
+- dynamic post-type selector options populated from WordPress REST data;
+- per-type custom-field and taxonomy mappings;
+- type filters with counts;
+- query-term highlighting;
+- per-breakpoint column controls;
+- image fallback and ratio controls;
+- card presets;
+- AJAX navigation.
+
+Those capabilities will be added in later reviewable increments without changing the shared renderer contract.
+
+## Documentation rule
+
+Every pull request that changes behavior, controls, requirements, generated paths or public APIs must update this README in the same pull request. Documentation may describe merged or included code only; planned behavior belongs exclusively in **Not implemented yet**.
 
 ## License
 
