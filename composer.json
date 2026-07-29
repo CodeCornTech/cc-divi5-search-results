@@ -20,6 +20,8 @@
         "check:syntax": "find . -path ./vendor -prune -o -path ./node_modules -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l",
         "package": "bash bin/cc-deploy-vm --package-only",
         "deploy:check": "bash bin/cc-deploy-vm --dry-run",
-        "deploy": "bash bin/cc-deploy-vm --apply"
+        "deploy": "bash bin/cc-deploy-vm --apply",
+        "deploy:barbagia:check": "bash bin/cc-deploy-barbagia-vm --dry-run",
+        "deploy:barbagia": "bash bin/cc-deploy-barbagia-vm --apply"
     }
 }
