@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+
+cc_d5sr_barbagia_usage() {
+    cat <<'USAGE'
+Uso:
+  bin/cc-deploy-barbagia-vm --dry-run
+  bin/cc-deploy-barbagia-vm --package-only
+  bin/cc-deploy-barbagia-vm --apply
+
+Default Barbagia Musei:
+  SSH target:    docker02
+  Compose file:  /home/fgirolami/docker/barbagiamusei/compose.yaml
+  Compose service: wp_cron
+  WordPress root: /var/www/html
+
+Variabili opzionali:
+  CC_D5SR_DEPLOY_TARGET
+  CC_D5SR_COMPOSE_FILE
+  CC_D5SR_COMPOSE_SERVICE
+  CC_D5SR_REMOTE_WP_ROOT
+  CC_D5SR_REMOTE_STATE_DIR
+  CC_D5SR_SSH_PORT
+  CC_D5SR_ACTIVATE
+  CC_D5SR_BACKUP_KEEP
+  CC_D5SR_REQUIRE_CLEAN
+  CC_D5SR_COLOR
+USAGE
+}
+
+cc_d5sr_barbagia_error() {
+    printf 'ERRORE: %s\n' "$*" >&2
+}
+
+cc_d5sr_barbagia_info() {
+    printf '==> %s\n' "$*"
+}
+
+cc_d5sr_barbagia_validate_value() {
+    local value="$1"
+    local name="$2"
+
+    if [[ ! "$value" =~ ^[A-Za-z0-9_./@:-]+$ ]]; then
+        cc_d5sr_barbagia_error "$name contiene caratteri non ammessi"
+        return 1
+    fi
+}
+
+cc_d5sr_barbagia_resolve_container() {
+    local target="$1"
+    local ssh_port="$2"
+    local compose_file="$3"
+    local compose_service="$4"
+    local wp_root="$5"
+    local result
+
+    result="$(
+        ssh -p "$ssh_port" "$target" bash -s -- \
+            "$compose_file" \
+            "$compose_service" \
+            "$wp_root" <<'REMOTE_RESOLVE'
+resolve_container_main() {
+    compose_file="$1"
+    compose_service="$2"
+    wp_root="$3"
+
+    command -v docker >/dev/null 2>&1 || {
+        printf 'ERRORE: Docker non disponibile sulla VM.\n' >&2
+        return 1
+    }
+
+    [[ -f "$compose_file" ]] || {
+        printf 'ERRORE: Compose file non trovato: %s\n' "$compose_file" >&2
+        return 1
+    }
+
+    docker compose -f "$compose_file" config --services \
+        | grep -Fx "$compose_service" >/dev/null 2>&1 || {
+            printf 'ERRORE: service Compose non trovato: %s\n' "$compose_service" >&2
+            return 1
+        }
+
+    container_ids="$(docker compose -f "$compose_file" ps -q "$compose_service")" || return 1
+    container_count="$(printf '%s\n' "$container_ids" | awk 'NF { count++ } END { print count + 0 }')"
+
+    [[ "$container_count" == '1' ]] || {
+        printf 'ERRORE: atteso un solo container per %s, trovati %s.\n' \
+            "$compose_service" \
+            "$container_count" >&2
+        return 1
+    }
+
+    container_id="$(printf '%s\n' "$container_ids" | awk 'NF { print; exit }')"
+
+    docker inspect "$container_id" >/dev/null 2>&1 || {
+        printf 'ERRORE: container Compose non disponibile: %s\n' "$container_id" >&2
+        return 1
+    }
+
+    docker exec "$container_id" sh -lc \
+        "test -f '$wp_root/wp-load.php' && command -v php >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 && command -v wp >/dev/null 2>&1" || {
+            printf 'ERRORE: il container %s non espone WordPress, PHP, tar e WP-CLI nel path %s.\n' \
+                "$container_id" \
+                "$wp_root" >&2
+            return 1
+        }
+
+    container_name="$(docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')" || return 1
+
+    printf '%s|%s\n' "$container_id" "$container_name"
+}
+
+resolve_container_main "$@"
+REMOTE_RESOLVE
+    )" || return 1
+
+    [[ "$result" == *'|'* ]] || {
+        cc_d5sr_barbagia_error 'risposta non valida durante la risoluzione del container Compose'
+        return 1
+    }
+
+    CC_D5SR_BARBAGIA_CONTAINER_ID="${result%%|*}"
+    CC_D5SR_BARBAGIA_CONTAINER_NAME="${result#*|}"
+
+    [[ "$CC_D5SR_BARBAGIA_CONTAINER_ID" =~ ^[a-f0-9]{12,64}$ ]] || {
+        cc_d5sr_barbagia_error "ID container non valido: $CC_D5SR_BARBAGIA_CONTAINER_ID"
+        return 1
+    }
+}
+
+cc_d5sr_barbagia_main() {
+    local action="${1:-}"
+    local repo_root deploy_script
+    local target compose_file compose_service wp_root ssh_port
+
+    case "$action" in
+        --dry-run|--package-only|--apply)
+            ;;
+        -h|--help)
+            cc_d5sr_barbagia_usage
+            return 0
+            ;;
+        *)
+            cc_d5sr_barbagia_error 'specificare --dry-run, --package-only o --apply'
+            cc_d5sr_barbagia_usage >&2
+            return 1
+            ;;
+    esac
+
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        cc_d5sr_barbagia_error 'eseguire il wrapper dentro il repository Git'
+        return 1
+    }
+
+    deploy_script="$repo_root/bin/cc-deploy-vm"
+    [[ -f "$deploy_script" ]] || {
+        cc_d5sr_barbagia_error "script generico non trovato: $deploy_script"
+        return 1
+    }
+
+    target="${CC_D5SR_DEPLOY_TARGET:-docker02}"
+    compose_file="${CC_D5SR_COMPOSE_FILE:-/home/fgirolami/docker/barbagiamusei/compose.yaml}"
+    compose_service="${CC_D5SR_COMPOSE_SERVICE:-wp_cron}"
+    wp_root="${CC_D5SR_REMOTE_WP_ROOT:-/var/www/html}"
+    ssh_port="${CC_D5SR_SSH_PORT:-22}"
+
+    cc_d5sr_barbagia_validate_value "$target" CC_D5SR_DEPLOY_TARGET || return 1
+    cc_d5sr_barbagia_validate_value "$compose_file" CC_D5SR_COMPOSE_FILE || return 1
+    cc_d5sr_barbagia_validate_value "$compose_service" CC_D5SR_COMPOSE_SERVICE || return 1
+    cc_d5sr_barbagia_validate_value "$wp_root" CC_D5SR_REMOTE_WP_ROOT || return 1
+
+    [[ "$ssh_port" =~ ^[0-9]+$ ]] || {
+        cc_d5sr_barbagia_error 'CC_D5SR_SSH_PORT deve essere numerica'
+        return 1
+    }
+
+    export CC_D5SR_DEPLOY_TARGET="$target"
+    export CC_D5SR_DEPLOY_MODE='docker'
+    export CC_D5SR_REMOTE_WP_ROOT="$wp_root"
+    export CC_D5SR_SSH_PORT="$ssh_port"
+    export CC_D5SR_ACTIVATE="${CC_D5SR_ACTIVATE:-1}"
+    export CC_D5SR_BACKUP_KEEP="${CC_D5SR_BACKUP_KEEP:-10}"
+    export CC_D5SR_COLOR="${CC_D5SR_COLOR:-always}"
+
+    cc_d5sr_barbagia_info "repository locale: $repo_root"
+    cc_d5sr_barbagia_info "target SSH: $target"
+    cc_d5sr_barbagia_info "Compose file remoto: $compose_file"
+    cc_d5sr_barbagia_info "Compose service: $compose_service"
+    cc_d5sr_barbagia_info "WordPress root: $wp_root"
+
+    if [[ "$action" == '--apply' ]]; then
+        cc_d5sr_barbagia_info 'risoluzione container dal Compose remoto'
+        cc_d5sr_barbagia_resolve_container \
+            "$target" \
+            "$ssh_port" \
+            "$compose_file" \
+            "$compose_service" \
+            "$wp_root" || return 1
+
+        export CC_D5SR_DEPLOY_CONTAINER="$CC_D5SR_BARBAGIA_CONTAINER_ID"
+        cc_d5sr_barbagia_info \
+            "container risolto: $CC_D5SR_BARBAGIA_CONTAINER_NAME ($CC_D5SR_BARBAGIA_CONTAINER_ID)"
+    else
+        unset CC_D5SR_DEPLOY_CONTAINER
+        cc_d5sr_barbagia_info 'container remoto: risolto dal Compose soltanto durante --apply'
+    fi
+
+    bash "$deploy_script" "$action"
+}
+
+cc_d5sr_barbagia_main "$@"
