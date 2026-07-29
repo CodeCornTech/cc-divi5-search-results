@@ -128,7 +128,7 @@ After any change to `package.json` or `.npmrc`, reset the local dependency tree 
 npm run reset-install
 ```
 
-`reset-install` removes `node_modules` and `package-lock.json`, then performs a fresh install using the repository `.npmrc` policy.
+`reset-install` removes `node_modules` and `package-lock.json`, then performs a fresh install using the repository `.npmrc` policy. Run it only after pulling the commit that defines the script.
 
 Validation:
 
