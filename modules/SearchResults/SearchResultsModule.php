@@ -60,7 +60,9 @@ final class SearchResultsModule implements DependencyInterface {
                 'source'         => $options['source'],
             )
         );
-        $content = ( new SearchResultsRenderer() )->render( $result, $rules, $options );
+
+        $options['instance_id'] = (string) ( $block->parsed_block['id'] ?? '' );
+        $content                = ( new SearchResultsRenderer() )->render( $result, $rules, $options );
 
         return Module::render(
             array(
@@ -136,11 +138,22 @@ final class SearchResultsModule implements DependencyInterface {
      * @return array<string, mixed>
      */
     private static function optionsFromAttrs( array $attrs ): array {
+        $columns = AttributeValue::responsiveField(
+            $attrs,
+            array( 'display', 'innerContent' ),
+            'columns',
+            '3',
+            '2',
+            '1'
+        );
+
         return array(
-            'columns'          => (int) AttributeValue::desktopField( $attrs, array( 'display', 'innerContent' ), 'columns', '3' ),
-            'empty_body'       => AttributeValue::desktopField( $attrs, array( 'emptyState', 'innerContent' ), 'body', __( 'Try a different search term or browse another section of the site.', 'cc-divi5-search-results' ) ),
-            'empty_title'      => AttributeValue::desktopField( $attrs, array( 'emptyState', 'innerContent' ), 'title', __( 'No results found', 'cc-divi5-search-results' ) ),
+            'ajax_pagination'  => AttributeValue::desktopField( $attrs, array( 'display', 'innerContent' ), 'ajaxPagination', 'on' ),
+            'columns'          => array_map( 'intval', $columns ),
+            'empty_body'       => AttributeValue::desktopField( $attrs, array( 'emptyState', 'innerContent' ), 'body', __( 'Prova con un termine diverso oppure visita un’altra sezione del sito.', 'cc-divi5-search-results' ) ),
+            'empty_title'      => AttributeValue::desktopField( $attrs, array( 'emptyState', 'innerContent' ), 'title', __( 'Nessun risultato trovato', 'cc-divi5-search-results' ) ),
             'posts_per_page'   => (int) AttributeValue::desktopField( $attrs, array( 'query', 'innerContent' ), 'postsPerPage', '10' ),
+            'preset'           => AttributeValue::desktopField( $attrs, array( 'display', 'innerContent' ), 'preset', 'grid' ),
             'search_term'      => AttributeValue::desktopField( $attrs, array( 'query', 'innerContent' ), 'searchTerm', '' ),
             'show_search_form' => AttributeValue::desktopField( $attrs, array( 'display', 'innerContent' ), 'showSearchForm', 'on' ),
             'show_summary'     => AttributeValue::desktopField( $attrs, array( 'display', 'innerContent' ), 'showSummary', 'on' ),
