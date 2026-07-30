@@ -46,6 +46,11 @@ final class ResultTypeRule {
         $plural   = self::label( $values['pluralLabel'] ?? $values['plural_label'] ?? '', $object, true, $singular );
         $badge    = sanitize_text_field( (string) ( $values['badgeLabel'] ?? $values['badge_label'] ?? $singular ) );
         $accent   = sanitize_hex_color( (string) ( $values['accentColor'] ?? $values['accent_color'] ?? '#2b2f36' ) );
+        $cta      = sanitize_text_field( (string) ( $values['ctaLabel'] ?? $values['cta_label'] ?? '' ) );
+
+        if ( '' === $cta || 'View result' === $cta ) {
+            $cta = __( 'Vedi risultato', 'cc-divi5-search-results' );
+        }
 
         return new self(
             $post_type,
@@ -58,7 +63,7 @@ final class ResultTypeRule {
             self::flag( $values['showExcerpt'] ?? $values['show_excerpt'] ?? 'on' ),
             self::flag( $values['showDate'] ?? $values['show_date'] ?? 'on' ),
             max( 0, min( 200, (int) ( $values['excerptLength'] ?? $values['excerpt_length'] ?? 28 ) ) ),
-            sanitize_text_field( (string) ( $values['ctaLabel'] ?? $values['cta_label'] ?? __( 'Vedi risultato', 'cc-divi5-search-results' ) ) )
+            $cta
         );
     }
 
