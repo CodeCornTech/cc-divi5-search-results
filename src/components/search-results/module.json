@@ -1,13 +1,13 @@
 {
   "name": "codecorn/search-results",
   "d4Shortcode": "",
-  "title": "Search Results",
-  "titles": "Search Results",
+  "title": "CC Search Results",
+  "titles": "CC Search Results",
   "moduleIcon": "divi/module-search",
   "moduleClassName": "cc-d5sr",
   "moduleOrderClassName": "cc-d5sr",
   "childModuleName": "codecorn/search-result-type",
-  "childModuleTitle": "Result Type Rule",
+  "childModuleTitle": "CC Result Type",
   "category": "module",
   "childrenName": [
     "codecorn/search-result-type"
@@ -16,22 +16,29 @@
     "module": {
       "type": "object",
       "selector": "{{selector}}",
+      "default": {
+        "meta": {
+          "adminLabel": {
+            "desktop": {
+              "value": "CC Search Results"
+            }
+          }
+        }
+      },
       "settings": {
         "meta": {
-          "meta": {}
+          "adminLabel": {}
         },
         "advanced": {
-          "html": {},
+          "htmlAttributes": {},
           "link": {},
           "text": {}
         },
         "decoration": {
           "animation": {},
-          "attributes": {},
           "background": {},
           "border": {},
           "boxShadow": {},
-          "conditions": {},
           "disabledOn": {},
           "filters": {},
           "overflow": {},
@@ -69,6 +76,12 @@
               "render": true,
               "subName": "source",
               "label": "Query source",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/select",
@@ -90,7 +103,13 @@
               "render": true,
               "subName": "searchTerm",
               "label": "Search term",
-              "description": "Used by the isolated query and by Visual Builder previews.",
+              "description": "Used by the isolated query and Visual Builder previews.",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -102,6 +121,12 @@
               "render": true,
               "subName": "postsPerPage",
               "label": "Results per page",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -119,7 +144,19 @@
             "value": {
               "showSummary": "on",
               "showSearchForm": "on",
-              "columns": "3"
+              "preset": "grid",
+              "columns": "3",
+              "ajaxPagination": "on"
+            }
+          },
+          "tablet": {
+            "value": {
+              "columns": "2"
+            }
+          },
+          "phone": {
+            "value": {
+              "columns": "1"
             }
           }
         }
@@ -134,6 +171,12 @@
               "render": true,
               "subName": "showSummary",
               "label": "Show result count",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/toggle"
@@ -144,31 +187,104 @@
               "priority": 20,
               "render": true,
               "subName": "showSearchForm",
-              "label": "Show search form",
+              "label": "Show search form above results",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/toggle"
               }
             },
-            "columns": {
+            "preset": {
               "groupSlug": "contentDisplay",
               "priority": 30,
               "render": true,
-              "subName": "columns",
-              "label": "Desktop columns",
+              "subName": "preset",
+              "label": "Output preset",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/select",
                 "props": {
                   "options": {
-                    "1": { "label": "1" },
-                    "2": { "label": "2" },
-                    "3": { "label": "3" },
-                    "4": { "label": "4" },
-                    "5": { "label": "5" },
-                    "6": { "label": "6" }
+                    "grid": {
+                      "label": "Editorial grid"
+                    },
+                    "compact-list": {
+                      "label": "Compact vertical list"
+                    },
+                    "classic-card": {
+                      "label": "Classic image card"
+                    }
                   }
                 }
+              }
+            },
+            "columns": {
+              "groupSlug": "contentDisplay",
+              "priority": 40,
+              "render": true,
+              "subName": "columns",
+              "label": "Columns",
+              "description": "Responsive column count for grid and classic-card presets.",
+              "features": {
+                "sticky": false,
+                "responsive": true,
+                "hover": false,
+                "dynamicContent": false
+              },
+              "component": {
+                "type": "field",
+                "name": "divi/select",
+                "props": {
+                  "options": {
+                    "1": {
+                      "label": "1"
+                    },
+                    "2": {
+                      "label": "2"
+                    },
+                    "3": {
+                      "label": "3"
+                    },
+                    "4": {
+                      "label": "4"
+                    },
+                    "5": {
+                      "label": "5"
+                    },
+                    "6": {
+                      "label": "6"
+                    }
+                  }
+                }
+              }
+            },
+            "ajaxPagination": {
+              "groupSlug": "contentDisplay",
+              "priority": 50,
+              "render": true,
+              "subName": "ajaxPagination",
+              "label": "AJAX pagination",
+              "description": "Loads the next result page without a full-page refresh and falls back to normal links on failure.",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
+              "component": {
+                "type": "field",
+                "name": "divi/toggle"
               }
             }
           }
@@ -181,8 +297,8 @@
         "innerContent": {
           "desktop": {
             "value": {
-              "title": "No results found",
-              "body": "Try a different search term or browse another section of the site."
+              "title": "Nessun risultato trovato",
+              "body": "Prova con un termine diverso oppure visita un’altra sezione del sito."
             }
           }
         }
@@ -197,6 +313,12 @@
               "render": true,
               "subName": "title",
               "label": "Empty-state title",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -208,6 +330,12 @@
               "render": true,
               "subName": "body",
               "label": "Empty-state message",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/textarea"
@@ -216,6 +344,43 @@
           }
         }
       }
+    }
+  },
+  "customCssFields": {
+    "summary": {
+      "subName": "summary",
+      "label": "Result summary",
+      "selectorSuffix": " .cc-d5sr__summary"
+    },
+    "searchForm": {
+      "subName": "searchForm",
+      "label": "Search form",
+      "selectorSuffix": " .cc-d5sr__search"
+    },
+    "results": {
+      "subName": "results",
+      "label": "Results wrapper",
+      "selectorSuffix": " .cc-d5sr__results"
+    },
+    "card": {
+      "subName": "card",
+      "label": "Result card",
+      "selectorSuffix": " .cc-d5sr__card"
+    },
+    "cardImage": {
+      "subName": "cardImage",
+      "label": "Card image",
+      "selectorSuffix": " .cc-d5sr__image"
+    },
+    "cardTitle": {
+      "subName": "cardTitle",
+      "label": "Card title",
+      "selectorSuffix": " .cc-d5sr__title"
+    },
+    "pagination": {
+      "subName": "pagination",
+      "label": "Pagination",
+      "selectorSuffix": " .cc-d5sr__pagination"
     }
   },
   "settings": {
@@ -243,7 +408,7 @@
         "component": {
           "name": "divi/composite",
           "props": {
-            "groupLabel": "Display"
+            "groupLabel": "Layout and navigation"
           }
         }
       },
