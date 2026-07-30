@@ -38,6 +38,14 @@ final class Plugin {
             array(),
             CC_D5SR_VERSION
         );
+
+        wp_enqueue_script(
+            'cc-divi5-search-results',
+            CC_D5SR_URL . 'assets/js/search-results.js',
+            array(),
+            CC_D5SR_VERSION,
+            true
+        );
     }
 
     /**
@@ -167,7 +175,7 @@ final class Plugin {
          * Filter post types exposed by the CC Result Type selector.
          *
          * @param array<string, array{label:string}> $options           Divi select options keyed by post type slug.
-         * @param array<string, \WP_Post_Type>       $post_type_objects Public post type objects, excluding attachments.
+         * @param array<string, \WP_Post_Type>      $post_type_objects Public post type objects, excluding attachments.
          */
         $options = apply_filters(
             'cc_d5sr_builder_post_type_options',
