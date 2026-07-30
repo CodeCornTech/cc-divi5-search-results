@@ -22,6 +22,9 @@
 - Barbagia-specific Composer commands `deploy:barbagia:check` and `deploy:barbagia`.
 - Dedicated Barbagia wrapper pinned to `/home/fgirolami/docker/barbagiamusei/compose.yaml` and the `wp_cron` Compose service.
 - Dynamic resolution and validation of the real `wp_cron` container before remote deployment.
+- Barbagia deployment preflight requiring SSH public-key authentication and direct remote Docker API access.
+- Dynamic Visual Builder post-type selector populated from public WordPress post types, with labels and slugs.
+- `cc_d5sr_builder_post_type_options` filter for adjusting the post types exposed by the builder selector.
 
 ### Changed
 
@@ -35,4 +38,7 @@
 - Deployment documentation now defines reproducible packaging, dry-run behavior, remote requirements, backup location and rollback guarantees.
 - Generic Docker deployment documentation now distinguishes Docker container names or IDs from Compose service names.
 - Barbagia deployment no longer depends on the current SSH directory or a hardcoded container name.
+- Barbagia deployment now refuses password fallback and reports the remote Docker socket user, groups and permissions before any package upload.
 - Documentation now records that runtime packaging passed a disposable mock-repository test while the first real VM deployment remains an integration gate.
+- Visual Builder display names are now `CC Search Results` and `CC Result Type` while the saved technical module slugs remain unchanged.
+- The result-type post-type control is now a select instead of a free-text slug field.
