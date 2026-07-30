@@ -9,11 +9,12 @@ final class SearchQueryResolver {
      * @param array<string, mixed> $options
      */
     public function resolve( array $options ): QueryResult {
-        $source          = sanitize_key( (string) ( $options['source'] ?? 'current' ) );
-        $posts_per_page  = max( 1, min( 100, (int) ( $options['posts_per_page'] ?? 10 ) ) );
-        $current_page    = max( 1, (int) ( $options['current_page'] ?? $this->currentPage() ) );
-        $post_types      = $this->sanitizePostTypes( $options['post_types'] ?? array() );
-        $requested_term  = sanitize_text_field( (string) ( $options['search_term'] ?? '' ) );
+        $source             = sanitize_key( (string) ( $options['source'] ?? 'current' ) );
+        $requested_page_size = (int) ( $options['posts_per_page'] ?? 10 );
+        $posts_per_page     = 0 < $requested_page_size ? min( 100, $requested_page_size ) : 10;
+        $current_page       = max( 1, (int) ( $options['current_page'] ?? $this->currentPage() ) );
+        $post_types         = $this->sanitizePostTypes( $options['post_types'] ?? array() );
+        $requested_term     = sanitize_text_field( (string) ( $options['search_term'] ?? '' ) );
 
         if ( 'current' === $source ) {
             $current = $this->currentSearchQuery();
