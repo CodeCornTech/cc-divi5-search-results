@@ -55,6 +55,7 @@
 - Frontend presentation now styles the search form, cards, metadata, pagination, loading state, focus states and reduced-motion behavior.
 - Parent and child module metadata now use the native Divi 5 `adminLabel` and `htmlAttributes` schema.
 - `source=current` now derives a private query from the current WordPress search context so module post types, page size and pagination are honored without mutating `$wp_query`.
+- Frontend CSS, JavaScript and Visual Builder bundles now use version-plus-filemtime cache keys during iterative deployments.
 
 ### Fixed
 
