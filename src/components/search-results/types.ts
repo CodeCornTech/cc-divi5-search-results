@@ -14,7 +14,9 @@ export interface SearchResultsQueryValue {
 export interface SearchResultsDisplayValue {
   showSummary?: string;
   showSearchForm?: string;
+  preset?: string;
   columns?: string;
+  ajaxPagination?: string;
 }
 
 export interface SearchResultsEmptyValue {
