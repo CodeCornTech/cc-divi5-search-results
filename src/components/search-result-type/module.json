@@ -1,8 +1,8 @@
 {
   "name": "codecorn/search-result-type",
   "d4Shortcode": "",
-  "title": "Result Type Rule",
-  "titles": "Result Type Rules",
+  "title": "CC Result Type",
+  "titles": "CC Result Types",
   "moduleIcon": "divi/module-toggle",
   "moduleClassName": "cc-d5sr-rule",
   "moduleOrderClassName": "cc-d5sr-rule",
@@ -12,12 +12,21 @@
     "module": {
       "type": "object",
       "selector": "{{selector}}",
+      "default": {
+        "meta": {
+          "adminLabel": {
+            "desktop": {
+              "value": "CC Result Type"
+            }
+          }
+        }
+      },
       "settings": {
         "meta": {
-          "meta": {}
+          "adminLabel": {}
         },
         "advanced": {
-          "html": {}
+          "htmlAttributes": {}
         },
         "decoration": {
           "disabledOn": {}
@@ -40,7 +49,7 @@
               "showExcerpt": "on",
               "showDate": "on",
               "excerptLength": "28",
-              "ctaLabel": "View result"
+              "ctaLabel": "Vedi risultato"
             }
           }
         }
@@ -54,7 +63,41 @@
               "priority": 10,
               "render": true,
               "subName": "postType",
-              "label": "Post type slug",
+              "label": "Post type",
+              "description": "Choose one of the public post types registered by WordPress.",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
+              "component": {
+                "type": "field",
+                "name": "divi/select",
+                "props": {
+                  "options": {
+                    "post": {
+                      "label": "Posts (post)"
+                    },
+                    "page": {
+                      "label": "Pages (page)"
+                    }
+                  }
+                }
+              }
+            },
+            "priority": {
+              "groupSlug": "contentRule",
+              "priority": 20,
+              "render": true,
+              "subName": "priority",
+              "label": "Rule priority",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -66,6 +109,12 @@
               "render": true,
               "subName": "singularLabel",
               "label": "Singular label",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -77,6 +126,12 @@
               "render": true,
               "subName": "pluralLabel",
               "label": "Plural label",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -88,17 +143,12 @@
               "render": true,
               "subName": "badgeLabel",
               "label": "Badge label",
-              "component": {
-                "type": "field",
-                "name": "divi/text"
-              }
-            },
-            "priority": {
-              "groupSlug": "contentRule",
-              "priority": 20,
-              "render": true,
-              "subName": "priority",
-              "label": "Rule priority",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -110,6 +160,12 @@
               "render": true,
               "subName": "accentColor",
               "label": "Accent color",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/color-picker"
@@ -121,6 +177,12 @@
               "render": true,
               "subName": "showImage",
               "label": "Show image",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/toggle"
@@ -132,6 +194,12 @@
               "render": true,
               "subName": "showExcerpt",
               "label": "Show excerpt",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/toggle"
@@ -143,6 +211,12 @@
               "render": true,
               "subName": "showDate",
               "label": "Show date",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/toggle"
@@ -154,6 +228,12 @@
               "render": true,
               "subName": "excerptLength",
               "label": "Excerpt words",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
@@ -165,6 +245,12 @@
               "render": true,
               "subName": "ctaLabel",
               "label": "CTA label",
+              "features": {
+                "sticky": false,
+                "responsive": false,
+                "hover": false,
+                "dynamicContent": false
+              },
               "component": {
                 "type": "field",
                 "name": "divi/text"
