@@ -9,7 +9,8 @@ A public Divi 5 extension for type-aware WordPress search results. The native pa
 The `0.1.0` development branch currently includes:
 
 - safe plugin bootstrap with Composer PSR-4 autoloading and a source-checkout fallback autoloader;
-- reuse of the real current WordPress search query without calling `query_posts()` or replacing global `$wp_query`;
+- a private query derived from the real current WordPress search context without calling `query_posts()` or replacing global `$wp_query`;
+- module-owned post types, results per page and pagination for both current and isolated query sources;
 - isolated `WP_Query` resolution for Visual Builder previews, normal pages and shortcode use;
 - parent module `codecorn/search-results`, displayed as **CC Search Results**;
 - child module `codecorn/search-result-type`, displayed as **CC Result Type**;
@@ -21,7 +22,7 @@ The `0.1.0` development branch currently includes:
 - progressive AJAX pagination with loading state, URL history, focus restoration and classic-link fallback;
 - Italian frontend defaults for search, count, empty state, pagination and CTA labels;
 - shared rendering used by the native module and `[cc_divi5_search_results]`;
-- responsive frontend styling for form, cards, metadata, pagination, empty state and reduced motion;
+- responsive frontend styling plus a polished theme layer for form, cards, metadata, pagination, empty state and reduced motion;
 - Visual Builder TypeScript sources and webpack build;
 - deterministic runtime packaging with build manifest and SHA-256 checksum;
 - VM deployment for host and Docker WordPress installations with backup and rollback;
@@ -45,9 +46,9 @@ CC Search Results (codecorn/search-results)
 
 ### Query
 
-- current WordPress search query or isolated query;
+- current WordPress search context or isolated query;
 - explicit search term for isolated queries and Builder previews;
-- results per page.
+- results per page from 1 to 100; empty or invalid values fall back to 10.
 
 ### Layout and navigation
 
@@ -56,6 +57,8 @@ CC Search Results (codecorn/search-results)
 - output preset;
 - responsive columns for desktop, tablet and phone;
 - AJAX pagination on or off.
+
+The column count and results-per-page value are independent. A five-column grid can therefore render 5, 10, 15 or any other configured page size rather than inheriting the site's global search limit.
 
 ### Empty state
 
@@ -77,6 +80,23 @@ The columns control is ignored by this preset because it is intentionally a one-
 ### Classic image card — `classic-card`
 
 The image appears above the content. The title is the first element immediately below the image, followed by metadata, description and CTA. The responsive column control is applied at each Divi breakpoint.
+
+The default presentation is split into a structural stylesheet and a theme stylesheet:
+
+```text
+assets/css/search-results.css
+assets/css/search-results-theme.css
+```
+
+The theme layer provides the panel, search form, card depth, rule accents, compact-list treatment and pill pagination while retaining CSS custom properties for site-level overrides.
+
+Divi breakpoints used by the responsive layout are:
+
+```text
+desktop: above 980px
+tablet:  768px–980px
+phone:   767px and below
+```
 
 ## Result-type controls
 
@@ -107,9 +127,22 @@ Missing labels fall back to the registered post-type labels. Missing rules fall 
 
 ## Query contract
 
-For `source=current`, the module reads the already-resolved main WordPress search query. It does not mutate it.
+For `source=current`, the module reads the resolved main WordPress search query variables and creates a separate `WP_Query`. It preserves the current search term and compatible query context, then explicitly applies the module's selected post types, results-per-page value and current page. The global `$wp_query` and its posts are never changed.
 
-For `source=isolated`, the plugin creates its own query using the search term, configured result types, result limit and current page. Integrations can adjust only that isolated query:
+Integrations can adjust this private query:
+
+```php
+add_filter(
+    'cc_d5sr_current_query_args',
+    function ( array $query_args, array $options, WP_Query $current_query ): array {
+        return $query_args;
+    },
+    10,
+    3
+);
+```
+
+For `source=isolated`, the plugin creates its own query using the search term, configured result types, result limit and current page:
 
 ```php
 add_filter( 'cc_d5sr_query_args', function ( array $query_args, array $options ): array {
@@ -123,12 +156,13 @@ AJAX pagination is progressive enhancement rather than a second query endpoint:
 
 1. pagination still renders normal WordPress links;
 2. the frontend runtime fetches the real target page;
-3. it locates the same module instance in the returned document;
-4. it replaces only that module's inner result output;
-5. it updates browser history, scrolls to the module and restores keyboard focus;
-6. a failed request or missing module instance falls back to the normal page navigation.
+3. the server derives the module query again with the saved page size and result-type rules;
+4. the runtime locates the same module instance in the returned document;
+5. it replaces only that module's inner result output;
+6. it updates browser history, scrolls to the module and restores keyboard focus;
+7. a failed request or missing module instance falls back to the normal page navigation.
 
-This preserves the current WordPress search query, Theme Builder layout, third-party query filters and canonical paginated URLs. Disabling **AJAX pagination** leaves the normal links untouched.
+This preserves the search request context, Theme Builder layout, compatible third-party query filters and canonical paginated URLs while keeping page size under module control. Disabling **AJAX pagination** leaves the normal links untouched and produces the same result count per page.
 
 ## Optional shortcode
 
@@ -221,6 +255,7 @@ The runtime archive contains:
 ```text
 cc-divi5-search-results.php
 assets/css/search-results.css
+assets/css/search-results-theme.css
 assets/js/search-results.js
 includes/
 modules/
