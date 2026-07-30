@@ -49,5 +49,6 @@
 - The result-type post-type control is now a select instead of a free-text slug field.
 - The complete search form can be shown or hidden above the result output.
 - Default frontend copy is now Italian: `Cerca`, result counts, empty state, pagination labels and `Vedi risultato`.
+- Existing child modules that still contain the old exact default CTA `View result` are rendered as `Vedi risultato`; custom CTA labels are left untouched.
 - Frontend presentation now styles the search form, cards, metadata, pagination, loading state, focus states and reduced-motion behavior.
 - Parent and child module metadata now use the native Divi 5 `adminLabel` and `htmlAttributes` schema.
