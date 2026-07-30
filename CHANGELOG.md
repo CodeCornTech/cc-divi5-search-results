@@ -25,6 +25,11 @@
 - Barbagia deployment preflight requiring SSH public-key authentication and direct remote Docker API access.
 - Dynamic Visual Builder post-type selector populated from public WordPress post types, with labels and slugs.
 - `cc_d5sr_builder_post_type_options` filter for adjusting the post types exposed by the builder selector.
+- Three frontend output presets: editorial grid, compact vertical list and classic image card.
+- Independent desktop, tablet and phone column controls for grid-based presets.
+- Optional progressive AJAX pagination with loading state, browser history, focus restoration and classic navigation fallback.
+- Frontend JavaScript syntax validation through `npm run check:frontend`.
+- Custom CSS selector targets for summary, search form, results, cards, images, titles and pagination.
 
 ### Changed
 
@@ -42,3 +47,7 @@
 - Documentation now records that runtime packaging passed a disposable mock-repository test while the first real VM deployment remains an integration gate.
 - Visual Builder display names are now `CC Search Results` and `CC Result Type` while the saved technical module slugs remain unchanged.
 - The result-type post-type control is now a select instead of a free-text slug field.
+- The complete search form can be shown or hidden above the result output.
+- Default frontend copy is now Italian: `Cerca`, result counts, empty state, pagination labels and `Vedi risultato`.
+- Frontend presentation now styles the search form, cards, metadata, pagination, loading state, focus states and reduced-motion behavior.
+- Parent and child module metadata now use the native Divi 5 `adminLabel` and `htmlAttributes` schema.
