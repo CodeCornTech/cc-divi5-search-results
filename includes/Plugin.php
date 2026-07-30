@@ -39,6 +39,13 @@ final class Plugin {
             CC_D5SR_VERSION
         );
 
+        wp_enqueue_style(
+            'cc-divi5-search-results-theme',
+            CC_D5SR_URL . 'assets/css/search-results-theme.css',
+            array( 'cc-divi5-search-results' ),
+            CC_D5SR_VERSION
+        );
+
         wp_enqueue_script(
             'cc-divi5-search-results',
             CC_D5SR_URL . 'assets/js/search-results.js',
