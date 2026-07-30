@@ -103,7 +103,7 @@ add_filter(
 );
 ```
 
-Missing labels fall back to the registered post-type labels. Missing rules fall back to a generic rule derived from the result's post type.
+Missing labels fall back to the registered post-type labels. Missing rules fall back to a generic rule derived from the result's post type. Existing child modules that still store the old exact default CTA `View result` render as `Vedi risultato`; any custom CTA text remains unchanged.
 
 ## Query contract
 
