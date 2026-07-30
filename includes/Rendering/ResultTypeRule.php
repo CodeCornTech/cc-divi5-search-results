@@ -58,7 +58,7 @@ final class ResultTypeRule {
             self::flag( $values['showExcerpt'] ?? $values['show_excerpt'] ?? 'on' ),
             self::flag( $values['showDate'] ?? $values['show_date'] ?? 'on' ),
             max( 0, min( 200, (int) ( $values['excerptLength'] ?? $values['excerpt_length'] ?? 28 ) ) ),
-            sanitize_text_field( (string) ( $values['ctaLabel'] ?? $values['cta_label'] ?? __( 'View result', 'cc-divi5-search-results' ) ) )
+            sanitize_text_field( (string) ( $values['ctaLabel'] ?? $values['cta_label'] ?? __( 'Vedi risultato', 'cc-divi5-search-results' ) ) )
         );
     }
 
@@ -66,6 +66,9 @@ final class ResultTypeRule {
         return self::fromFlatArray( array( 'postType' => $post_type ) );
     }
 
+    /**
+     * @param mixed $value
+     */
     private static function flag( $value ): bool {
         if ( is_bool( $value ) ) {
             return $value;
@@ -74,6 +77,9 @@ final class ResultTypeRule {
         return AttributeValue::isOn( (string) $value );
     }
 
+    /**
+     * @param mixed $candidate
+     */
     private static function label( $candidate, ?WP_Post_Type $object, bool $plural, string $fallback ): string {
         $candidate = sanitize_text_field( (string) $candidate );
 
