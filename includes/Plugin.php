@@ -36,21 +36,21 @@ final class Plugin {
             'cc-divi5-search-results',
             CC_D5SR_URL . 'assets/css/search-results.css',
             array(),
-            CC_D5SR_VERSION
+            self::assetVersion( 'assets/css/search-results.css' )
         );
 
         wp_enqueue_style(
             'cc-divi5-search-results-theme',
             CC_D5SR_URL . 'assets/css/search-results-theme.css',
             array( 'cc-divi5-search-results' ),
-            CC_D5SR_VERSION
+            self::assetVersion( 'assets/css/search-results-theme.css' )
         );
 
         wp_enqueue_script(
             'cc-divi5-search-results',
             CC_D5SR_URL . 'assets/js/search-results.js',
             array(),
-            CC_D5SR_VERSION,
+            self::assetVersion( 'assets/js/search-results.js' ),
             true
         );
     }
@@ -104,7 +104,7 @@ final class Plugin {
         \ET\Builder\VisualBuilder\Assets\PackageBuildManager::register_package_build(
             array(
                 'name'    => 'cc-divi5-search-results-vb',
-                'version' => CC_D5SR_VERSION,
+                'version' => self::assetVersion( 'scripts/bundle.js' ),
                 'script'  => array(
                     'src'                => CC_D5SR_URL . 'scripts/bundle.js',
                     'deps'               => array(
@@ -124,7 +124,7 @@ final class Plugin {
             \ET\Builder\VisualBuilder\Assets\PackageBuildManager::register_package_build(
                 array(
                     'name'    => 'cc-divi5-search-results-vb-style',
-                    'version' => CC_D5SR_VERSION,
+                    'version' => self::assetVersion( 'styles/vb-bundle.css' ),
                     'style'   => array(
                         'src'                => CC_D5SR_URL . 'styles/vb-bundle.css',
                         'deps'               => array(),
@@ -134,6 +134,15 @@ final class Plugin {
                 )
             );
         }
+    }
+
+    private static function assetVersion( string $relative_path ): string {
+        $path = CC_D5SR_DIR . ltrim( $relative_path, '/' );
+        $time = is_readable( $path ) ? filemtime( $path ) : false;
+
+        return false !== $time
+            ? CC_D5SR_VERSION . '.' . (string) $time
+            : CC_D5SR_VERSION;
     }
 
     /**
