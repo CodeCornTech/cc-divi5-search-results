@@ -8,6 +8,8 @@ use CodeCorn\Divi5SearchResults\Rendering\RuleCollection;
 use CodeCorn\Divi5SearchResults\Rendering\SearchResultsRenderer;
 
 final class SearchResultsShortcode {
+    private static int $instance = 0;
+
     public static function register(): void {
         add_shortcode( 'cc_divi5_search_results', array( self::class, 'render' ) );
     }
@@ -18,11 +20,15 @@ final class SearchResultsShortcode {
     public static function render( $attributes = array() ): string {
         $attributes = shortcode_atts(
             array(
+                'ajax_pagination' => 'on',
                 'columns'          => '3',
-                'cta_label'        => __( 'View result', 'cc-divi5-search-results' ),
+                'columns_phone'    => '1',
+                'columns_tablet'   => '2',
+                'cta_label'        => __( 'Vedi risultato', 'cc-divi5-search-results' ),
                 'excerpt_length'   => '28',
                 'post_types'       => '',
                 'posts_per_page'   => '10',
+                'preset'           => 'grid',
                 'search'           => '',
                 'show_date'        => 'on',
                 'show_excerpt'     => 'on',
@@ -64,11 +70,20 @@ final class SearchResultsShortcode {
             )
         );
 
+        ++self::$instance;
+
         return ( new SearchResultsRenderer() )->render(
             $result,
             new RuleCollection( $rules ),
             array(
-                'columns'          => (int) $attributes['columns'],
+                'ajax_pagination'  => $attributes['ajax_pagination'],
+                'columns'          => array(
+                    'desktop' => (int) $attributes['columns'],
+                    'tablet'  => (int) $attributes['columns_tablet'],
+                    'phone'   => (int) $attributes['columns_phone'],
+                ),
+                'instance_id'      => 'shortcode-' . self::$instance,
+                'preset'           => $attributes['preset'],
                 'show_search_form' => $attributes['show_search_form'],
                 'show_summary'     => $attributes['show_summary'],
             )
