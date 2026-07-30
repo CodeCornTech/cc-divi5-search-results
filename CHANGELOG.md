@@ -30,6 +30,8 @@
 - Optional progressive AJAX pagination with loading state, browser history, focus restoration and classic navigation fallback.
 - Frontend JavaScript syntax validation through `npm run check:frontend`.
 - Custom CSS selector targets for summary, search form, results, cards, images, titles and pagination.
+- A second frontend theme layer with polished panel, form, card, list and pagination presentation.
+- `cc_d5sr_current_query_args` filter for the private query derived from the current search request.
 
 ### Changed
 
@@ -52,3 +54,10 @@
 - Existing child modules that still contain the old exact default CTA `View result` are rendered as `Vedi risultato`; custom CTA labels are left untouched.
 - Frontend presentation now styles the search form, cards, metadata, pagination, loading state, focus states and reduced-motion behavior.
 - Parent and child module metadata now use the native Divi 5 `adminLabel` and `htmlAttributes` schema.
+- `source=current` now derives a private query from the current WordPress search context so module post types, page size and pagination are honored without mutating `$wp_query`.
+
+### Fixed
+
+- The **Results per page** control is no longer ignored on real WordPress search pages or AJAX pagination requests.
+- Empty or invalid page-size values now fall back to 10 instead of collapsing to one result.
+- Grid column counts and result page sizes now operate independently, so a five-column layout can render the configured number of posts per page.
