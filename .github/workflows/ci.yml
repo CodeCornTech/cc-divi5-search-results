@@ -36,6 +36,12 @@ jobs:
       - name: Build Divi bundle
         run: npm run build
 
+      - name: Deployment shell syntax
+        run: |
+          bash -n bin/cc-deploy-vm
+          bash -n bin/cc-deploy-barbagia-vm
+          bash -n bin/cc-deploy-local
+
       - name: PHP lint
         run: |
           find . \
