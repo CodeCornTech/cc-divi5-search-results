@@ -3,10 +3,14 @@
 .env.*
 .idea/
 .vscode/
+.reference/
 node_modules/
 vendor/
 build/
 dist/
 coverage/
+modules-json/
+scripts/bundle.js
+styles/vb-bundle.css
 *.log
 *.zip

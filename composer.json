@@ -8,10 +8,20 @@
     },
     "autoload": {
         "psr-4": {
+            "CodeCorn\\Divi5SearchResults\\Modules\\": "modules/",
+            "CodeCorn\\Divi5SearchResults\\Shortcodes\\": "shortcodes/",
             "CodeCorn\\Divi5SearchResults\\": "includes/"
         }
     },
     "config": {
         "sort-packages": true
+    },
+    "scripts": {
+        "check:syntax": "find . -path ./vendor -prune -o -path ./node_modules -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l",
+        "package": "bash bin/cc-deploy-vm --package-only",
+        "deploy:check": "bash bin/cc-deploy-vm --dry-run",
+        "deploy": "bash bin/cc-deploy-vm --apply",
+        "deploy:barbagia:check": "bash bin/cc-deploy-barbagia-vm --dry-run",
+        "deploy:barbagia": "bash bin/cc-deploy-barbagia-vm --apply"
     }
 }
