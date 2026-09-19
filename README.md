@@ -6,7 +6,7 @@ A public Divi 5 extension for type-aware WordPress search results. The native pa
 
 ## Current implementation
 
-The `0.2.0` baseline currently includes:
+The `0.2.1` baseline currently includes:
 
 - safe plugin bootstrap with Composer PSR-4 autoloading and a source-checkout fallback autoloader;
 - a private query derived from the real current WordPress search context without calling `query_posts()` or replacing global `$wp_query`;
