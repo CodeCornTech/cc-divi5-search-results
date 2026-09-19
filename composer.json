@@ -22,6 +22,8 @@
         "deploy:check": "bash bin/cc-deploy-vm --dry-run",
         "deploy": "bash bin/cc-deploy-vm --apply",
         "deploy:barbagia:check": "bash bin/cc-deploy-barbagia-vm --dry-run",
-        "deploy:barbagia": "bash bin/cc-deploy-barbagia-vm --apply"
+        "deploy:barbagia": "bash bin/cc-deploy-barbagia-vm --apply",
+        "deploy:local:check": "bash bin/cc-deploy-local --dry-run",
+        "deploy:local": "bash bin/cc-deploy-local --apply"
     }
 }

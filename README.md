@@ -325,6 +325,58 @@ It excludes `src/`, `node_modules/`, development manifests, local references and
 
 Packaging requires committed lockfiles, a clean working tree unless explicitly overridden, and successful Composer, npm, TypeScript, JSON, JavaScript and PHP validation.
 
+## Local LAB deployment
+
+For the local Barbagia Musei LAB, use the runtime package rather than copying the
+development repository into WordPress.
+
+```bash
+cd "$GH_PATH/cc-divi5-search-results" || return 1
+
+composer deploy:local:check
+composer deploy:local
+```
+
+`deploy:local:check` performs the locked dependency install, validation, Divi
+build and runtime packaging, then verifies that the local Compose WordPress
+service is reachable. It does not change LAB files.
+
+`deploy:local` performs the same package gate and then:
+
+1. creates a timestamped backup of the existing LAB plugin when present;
+2. mirrors only the packaged runtime into WordPress;
+3. activates `cc-divi5-search-results` by default;
+4. verifies byte identity between the package and the LAB plugin;
+5. verifies that the public `SearchEngine` class is available through WordPress;
+6. verifies the installed plugin version.
+
+Default local contract:
+
+```text
+LAB root:         $HOME/Documents/barbagiamusei-lab-wp
+Compose file:     $HOME/Documents/barbagiamusei-lab-wp/compose.yaml
+Compose service:  wp_cron
+WordPress root:   /var/www/html
+Plugin path:      /var/www/html/wp-content/plugins/cc-divi5-search-results
+Backups:          $HOME/Documents/barbagiamusei-lab-wp/_BACKUPS/cc-divi5-search-results
+```
+
+Optional overrides:
+
+```text
+CC_D5SR_LOCAL_STACK_ROOT
+CC_D5SR_LOCAL_COMPOSE_FILE
+CC_D5SR_LOCAL_COMPOSE_SERVICE
+CC_D5SR_LOCAL_WP_ROOT
+CC_D5SR_LOCAL_PLUGIN_PATH
+CC_D5SR_LOCAL_BACKUP_ROOT
+CC_D5SR_LOCAL_ACTIVATE
+CC_D5SR_LOCAL_REQUIRE_CLEAN
+```
+
+Set `CC_D5SR_LOCAL_REQUIRE_CLEAN=0` only when deliberately deploying an
+uncommitted local checkout. The default is to require a clean tree.
+
 ## VM deployment
 
 Generic commands:
