@@ -1,0 +1,441 @@
+#!/bin/bash
+
+cc_d5sr_local_usage() {
+    cat <<'USAGE'
+Usage:
+  bin/cc-deploy-local --dry-run
+  bin/cc-deploy-local --apply
+
+Default LAB target:
+  Stack root:      $HOME/Documents/barbagiamusei-lab-wp
+  Compose file:    <stack root>/compose.yaml
+  Compose service: wp_cron
+  WordPress root:  /var/www/html
+  Plugin path:     /var/www/html/wp-content/plugins/cc-divi5-search-results
+  Backups:         <stack root>/_BACKUPS/cc-divi5-search-results
+
+Environment overrides:
+  CC_D5SR_LOCAL_STACK_ROOT
+  CC_D5SR_LOCAL_COMPOSE_FILE
+  CC_D5SR_LOCAL_COMPOSE_SERVICE
+  CC_D5SR_LOCAL_WP_ROOT
+  CC_D5SR_LOCAL_PLUGIN_PATH
+  CC_D5SR_LOCAL_BACKUP_ROOT
+  CC_D5SR_LOCAL_ACTIVATE
+  CC_D5SR_LOCAL_REQUIRE_CLEAN
+  CC_D5SR_COLOR
+USAGE
+}
+
+cc_d5sr_local_error() {
+    printf 'ERROR: %s\n' "$*" >&2
+}
+
+cc_d5sr_local_info() {
+    printf '\n===== %s =====\n' "$*"
+}
+
+cc_d5sr_local_ok() {
+    printf 'PASS: %s\n' "$*"
+}
+
+cc_d5sr_local_require() {
+    local command_name="$1"
+
+    command -v "$command_name" >/dev/null 2>&1 || {
+        cc_d5sr_local_error "required command not available: $command_name"
+        return 1
+    }
+}
+
+cc_d5sr_local_sha256() {
+    local file="$1"
+
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | awk '{print $1}'
+        return "${PIPESTATUS[0]}"
+    fi
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | awk '{print $1}'
+        return "${PIPESTATUS[0]}"
+    fi
+
+    cc_d5sr_local_error 'shasum or sha256sum is required'
+    return 1
+}
+
+cc_d5sr_local_manifest() {
+    local root="$1"
+
+    (
+        cd "$root" || return 1
+
+        find . -type f \
+            ! -name '.DS_Store' \
+            ! -name '._*' \
+            ! -path './__MACOSX' \
+            ! -path './__MACOSX/*' \
+            -print \
+            | LC_ALL=C sort \
+            | while IFS= read -r file; do
+                hash="$(cc_d5sr_local_sha256 "$file")" || return 1
+                printf '%s  %s\n' "$hash" "${file#./}"
+            done
+    )
+}
+
+cc_d5sr_remote_manifest() {
+    local compose_file="$1"
+    local service="$2"
+    local plugin_path="$3"
+
+    docker compose -f "$compose_file" exec -T "$service" sh -lc '
+PLUGIN="$1"
+cd "$PLUGIN" || exit 1
+
+if command -v sha256sum >/dev/null 2>&1; then
+    HASHER="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+    HASHER="shasum -a 256"
+else
+    echo "No SHA-256 tool available in container" >&2
+    exit 1
+fi
+
+find . -type f \
+    ! -name ".DS_Store" \
+    ! -name "._*" \
+    ! -path "./__MACOSX" \
+    ! -path "./__MACOSX/*" \
+    -print \
+| LC_ALL=C sort \
+| while IFS= read -r file; do
+    hash="$($HASHER "$file")" || exit 1
+    hash="${hash%% *}"
+    printf "%s  %s\\n" "$hash" "${file#./}"
+done
+' sh "$plugin_path"
+}
+
+cc_d5sr_local_check_lab() {
+    local compose_file="$1"
+    local service="$2"
+    local wp_root="$3"
+
+    docker compose -f "$compose_file" exec -T "$service" sh -lc '
+WP_ROOT="$1"
+test -f "$WP_ROOT/wp-load.php" || {
+    echo "WordPress root missing: $WP_ROOT" >&2
+    exit 1
+}
+command -v wp >/dev/null 2>&1 || {
+    echo "WP-CLI missing in container" >&2
+    exit 1
+}
+' sh "$wp_root"
+}
+
+cc_d5sr_local_check_target() {
+    local wp_root="$1"
+    local plugin_path="$2"
+
+    case "$plugin_path" in
+        "$wp_root"/wp-content/plugins/*)
+            return 0
+            ;;
+        *)
+            cc_d5sr_local_error "unsafe plugin path: $plugin_path"
+            return 1
+            ;;
+    esac
+}
+
+cc_d5sr_local_package() {
+    local repo_root="$1"
+    local require_clean="$2"
+    local version commit archive
+
+    cc_d5sr_local_info "PACKAGE + VALIDATION"
+
+    (
+        cd "$repo_root" || return 1
+        CC_D5SR_REQUIRE_CLEAN="$require_clean" \
+            bash bin/cc-deploy-vm --package-only
+    ) || return 1
+
+    version="$(
+        php -r '
+            $data = file_get_contents($argv[1]);
+            if (preg_match("/^[[:space:]]*\\*[[:space:]]*Version:[[:space:]]*([^[:space:]]+)/m", $data, $m)) {
+                echo $m[1];
+            }
+        ' "$repo_root/cc-divi5-search-results.php"
+    )"
+
+    [[ -n "$version" ]] || {
+        cc_d5sr_local_error 'unable to detect plugin version'
+        return 1
+    }
+
+    commit="$(git -C "$repo_root" rev-parse HEAD)" || return 1
+    archive="$repo_root/dist/cc-divi5-search-results-$version-${commit:0:12}.tar.gz"
+
+    [[ -f "$archive" ]] || {
+        cc_d5sr_local_error "package not found after build: $archive"
+        return 1
+    }
+
+    CC_D5SR_LOCAL_PACKAGE="$archive"
+    CC_D5SR_LOCAL_VERSION="$version"
+    CC_D5SR_LOCAL_COMMIT="$commit"
+
+    cc_d5sr_local_ok "package ready: $archive"
+}
+
+cc_d5sr_local_backup() {
+    local compose_file="$1"
+    local service="$2"
+    local plugin_path="$3"
+    local backup_root="$4"
+    local timestamp backup_dir
+
+    if ! docker compose -f "$compose_file" exec -T "$service" sh -lc '
+PLUGIN="$1"
+test -d "$PLUGIN" && test -n "$(find "$PLUGIN" -mindepth 1 -maxdepth 1 -print -quit)"
+' sh "$plugin_path" >/dev/null 2>&1; then
+        printf 'Backup: skipped, plugin target is empty or missing.\n'
+        return 0
+    fi
+
+    timestamp="$(date '+%Y%m%d-%H%M%S')"
+    backup_dir="$backup_root/$timestamp"
+    mkdir -p "$backup_dir" || return 1
+
+    docker compose -f "$compose_file" cp \
+        "$service:$plugin_path/." \
+        "$backup_dir/" || return 1
+
+    printf 'Backup: %s\n' "$backup_dir"
+}
+
+cc_d5sr_local_clean_target() {
+    local compose_file="$1"
+    local service="$2"
+    local wp_root="$3"
+    local plugin_path="$4"
+
+    docker compose -f "$compose_file" exec -T "$service" sh -lc '
+WP_ROOT="$1"
+PLUGIN="$2"
+
+case "$PLUGIN" in
+    "$WP_ROOT"/wp-content/plugins/*)
+        ;;
+    *)
+        echo "Refusing unsafe plugin target: $PLUGIN" >&2
+        exit 1
+        ;;
+esac
+
+mkdir -p "$PLUGIN" || exit 1
+find "$PLUGIN" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+' sh "$wp_root" "$plugin_path"
+}
+
+cc_d5sr_local_verify() {
+    local repo_root="$1"
+    local stage_dir="$2"
+    local compose_file="$3"
+    local service="$4"
+    local wp_root="$5"
+    local plugin_path="$6"
+    local activate="$7"
+    local tmp_root="$8"
+    local local_manifest_file="$tmp_root/local.sha256"
+    local remote_manifest_file="$tmp_root/remote.sha256"
+    local installed_version
+
+    cc_d5sr_local_info "VERIFY BYTE IDENTITY"
+
+    cc_d5sr_local_manifest "$stage_dir" >"$local_manifest_file" || return 1
+    cc_d5sr_remote_manifest "$compose_file" "$service" "$plugin_path" >"$remote_manifest_file" || return 1
+
+    printf 'package files: %s\n' "$(wc -l <"$local_manifest_file" | tr -d ' ')"
+    printf 'LAB files:     %s\n' "$(wc -l <"$remote_manifest_file" | tr -d ' ')"
+
+    diff -u "$local_manifest_file" "$remote_manifest_file" || return 1
+    cc_d5sr_local_ok 'package and LAB plugin are byte-identical'
+
+    if [[ "$activate" == '1' ]]; then
+        cc_d5sr_local_info "PLUGIN ACTIVE"
+
+        docker compose -f "$compose_file" exec -T "$service" \
+            wp --allow-root plugin is-active cc-divi5-search-results || return 1
+        cc_d5sr_local_ok 'plugin active'
+    fi
+
+    cc_d5sr_local_info "PUBLIC API"
+
+    docker compose -f "$compose_file" exec -T "$service" \
+        wp --allow-root eval '
+            $class = "CodeCorn\\Divi5SearchResults\\Api\\SearchEngine";
+            if (!class_exists($class)) {
+                throw new RuntimeException("SearchEngine public API unavailable");
+            }
+            echo "SearchEngine: OK\n";
+        ' || return 1
+    cc_d5sr_local_ok 'SearchEngine class available'
+
+    installed_version="$(
+        docker compose -f "$compose_file" exec -T "$service" \
+            wp --allow-root plugin get cc-divi5-search-results --field=version \
+            | tr -d '\r'
+    )" || return 1
+
+    printf 'Installed version: %s\n' "$installed_version"
+
+    if [[ "$installed_version" != "$CC_D5SR_LOCAL_VERSION" ]]; then
+        cc_d5sr_local_error "version mismatch: package=$CC_D5SR_LOCAL_VERSION LAB=$installed_version"
+        return 1
+    fi
+
+    cc_d5sr_local_ok "version $installed_version"
+    unset repo_root wp_root
+}
+
+cc_d5sr_local_main() {
+    local action="${1:-}"
+    local repo_root lab_root compose_file service wp_root plugin_path backup_root
+    local activate require_clean tmp_root stage_dir
+
+    case "$action" in
+        --dry-run|--apply)
+            ;;
+        -h|--help)
+            cc_d5sr_local_usage
+            return 0
+            ;;
+        *)
+            cc_d5sr_local_error 'specify --dry-run or --apply'
+            cc_d5sr_local_usage >&2
+            return 1
+            ;;
+    esac
+
+    for command_name in git php composer npm tar docker diff; do
+        cc_d5sr_local_require "$command_name" || return 1
+    done
+
+    docker compose version >/dev/null 2>&1 || {
+        cc_d5sr_local_error 'Docker Compose v2 is required'
+        return 1
+    }
+
+    repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+        cc_d5sr_local_error 'run inside the cc-divi5-search-results repository'
+        return 1
+    }
+
+    lab_root="${CC_D5SR_LOCAL_STACK_ROOT:-$HOME/Documents/barbagiamusei-lab-wp}"
+    compose_file="${CC_D5SR_LOCAL_COMPOSE_FILE:-$lab_root/compose.yaml}"
+    service="${CC_D5SR_LOCAL_COMPOSE_SERVICE:-wp_cron}"
+    wp_root="${CC_D5SR_LOCAL_WP_ROOT:-/var/www/html}"
+    plugin_path="${CC_D5SR_LOCAL_PLUGIN_PATH:-$wp_root/wp-content/plugins/cc-divi5-search-results}"
+    backup_root="${CC_D5SR_LOCAL_BACKUP_ROOT:-$lab_root/_BACKUPS/cc-divi5-search-results}"
+    activate="${CC_D5SR_LOCAL_ACTIVATE:-1}"
+    require_clean="${CC_D5SR_LOCAL_REQUIRE_CLEAN:-1}"
+
+    [[ -f "$compose_file" ]] || {
+        cc_d5sr_local_error "Compose file not found: $compose_file"
+        return 1
+    }
+
+    [[ "$activate" == '0' || "$activate" == '1' ]] || {
+        cc_d5sr_local_error 'CC_D5SR_LOCAL_ACTIVATE must be 0 or 1'
+        return 1
+    }
+
+    [[ "$require_clean" == '0' || "$require_clean" == '1' ]] || {
+        cc_d5sr_local_error 'CC_D5SR_LOCAL_REQUIRE_CLEAN must be 0 or 1'
+        return 1
+    }
+
+    cc_d5sr_local_check_target "$wp_root" "$plugin_path" || return 1
+
+    cc_d5sr_local_info "LOCAL DEPLOY"
+    printf 'repo:      %s\n' "$repo_root"
+    printf 'LAB root:  %s\n' "$lab_root"
+    printf 'compose:   %s\n' "$compose_file"
+    printf 'service:   %s\n' "$service"
+    printf 'plugin:    %s\n' "$plugin_path"
+    printf 'branch:    %s\n' "$(git -C "$repo_root" branch --show-current 2>/dev/null || printf '?')"
+    printf 'commit:    %s\n' "$(git -C "$repo_root" rev-parse --short HEAD 2>/dev/null || printf '?')"
+
+    cc_d5sr_local_package "$repo_root" "$require_clean" || return 1
+
+    cc_d5sr_local_info "CHECK LAB"
+    cc_d5sr_local_check_lab "$compose_file" "$service" "$wp_root" || return 1
+    cc_d5sr_local_ok 'WordPress container reachable'
+
+    if [[ "$action" == '--dry-run' ]]; then
+        cc_d5sr_local_info "DRY RUN SUMMARY"
+        printf 'RESULT: OK\n'
+        printf 'No LAB files changed.\n'
+        return 0
+    fi
+
+    tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/cc-d5sr-local.XXXXXX")" || return 1
+    trap "rm -rf '$tmp_root'" EXIT
+
+    tar -xzf "$CC_D5SR_LOCAL_PACKAGE" -C "$tmp_root" || return 1
+    stage_dir="$tmp_root/cc-divi5-search-results"
+
+    [[ -d "$stage_dir" ]] || {
+        cc_d5sr_local_error "invalid package layout: $stage_dir"
+        return 1
+    }
+
+    cc_d5sr_local_info "BACKUP"
+    cc_d5sr_local_backup \
+        "$compose_file" \
+        "$service" \
+        "$plugin_path" \
+        "$backup_root" || return 1
+
+    cc_d5sr_local_info "APPLY RUNTIME PACKAGE"
+    cc_d5sr_local_clean_target \
+        "$compose_file" \
+        "$service" \
+        "$wp_root" \
+        "$plugin_path" || return 1
+
+    docker compose -f "$compose_file" cp \
+        "$stage_dir/." \
+        "$service:$plugin_path" || return 1
+    cc_d5sr_local_ok 'runtime package mirrored into LAB'
+
+    if [[ "$activate" == '1' ]]; then
+        cc_d5sr_local_info "ACTIVATE"
+        docker compose -f "$compose_file" exec -T "$service" \
+            wp --allow-root plugin activate cc-divi5-search-results || return 1
+        cc_d5sr_local_ok 'activation command completed'
+    fi
+
+    cc_d5sr_local_verify \
+        "$repo_root" \
+        "$stage_dir" \
+        "$compose_file" \
+        "$service" \
+        "$wp_root" \
+        "$plugin_path" \
+        "$activate" \
+        "$tmp_root" || return 1
+
+    cc_d5sr_local_info "DEPLOY SUMMARY"
+    printf 'RESULT: OK\n'
+    printf 'Package: %s\n' "$CC_D5SR_LOCAL_PACKAGE"
+    printf 'Target:  %s:%s\n' "$service" "$plugin_path"
+}
+
+cc_d5sr_local_main "$@"
