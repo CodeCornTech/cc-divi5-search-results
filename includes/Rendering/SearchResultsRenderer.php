@@ -86,6 +86,7 @@ final class SearchResultsRenderer {
     }
 
     private function card( WP_Post $post, ResultTypeRule $rule ): string {
+        $context   = ResultContext::resolve( $post, $rule );
         $permalink = get_permalink( $post );
         $title     = get_the_title( $post );
         $image     = '';
@@ -121,12 +122,13 @@ final class SearchResultsRenderer {
         }
 
         return sprintf(
-            '<article class="%1$s" data-post-type="%2$s" style="--cc-d5sr-accent:%3$s">%4$s<div class="cc-d5sr__content"><div class="cc-d5sr__meta"><span class="cc-d5sr__badge">%5$s</span>%6$s</div><h2 class="cc-d5sr__title"><a href="%7$s">%8$s</a></h2>%9$s<a class="cc-d5sr__cta" href="%7$s">%10$s<span aria-hidden="true"> →</span></a></div></article>',
+            '<article class="%1$s" data-post-type="%2$s" data-result-context="%3$s" style="--cc-d5sr-accent:%4$s">%5$s<div class="cc-d5sr__content"><div class="cc-d5sr__meta"><span class="cc-d5sr__badge">%6$s</span>%7$s</div><h2 class="cc-d5sr__title"><a href="%8$s">%9$s</a></h2>%10$s<a class="cc-d5sr__cta" href="%8$s">%11$s<span aria-hidden="true"> →</span></a></div></article>',
             esc_attr( implode( ' ', $card_classes ) ),
             esc_attr( $rule->postType ),
-            esc_attr( $rule->accentColor ),
+            esc_attr( $context->key ),
+            esc_attr( $context->accentColor ),
             $image,
-            esc_html( $rule->badgeLabel ),
+            esc_html( $context->badgeLabel ),
             $date,
             esc_url( $permalink ),
             esc_html( $title ),

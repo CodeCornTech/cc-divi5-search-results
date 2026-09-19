@@ -1,6 +1,6 @@
 {
   "name": "cc-divi5-search-results",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Native, type-aware search results for Divi 5.",
   "license": "MIT",
@@ -11,7 +11,7 @@
   "scripts": {
     "start": "NODE_ENV=development webpack -w --config webpack.config.js --progress",
     "build": "NODE_ENV=production webpack --config webpack.config.js --progress",
-    "check": "npm run check:types && npm run check:json && npm run check:frontend",
+    "check": "npm run check:types && npm run check:json && npm run check:frontend && php tests/php/public-api-contract.php",
     "check:types": "tsc --noEmit",
     "check:json": "node scripts/check-json.cjs",
     "check:frontend": "node --check assets/js/search-results.js",

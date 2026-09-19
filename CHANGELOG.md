@@ -4,6 +4,10 @@
 
 ### Added
 
+- Public `SearchEngine` integration facade returning normalized `SearchResultSet` / `SearchResultItem` objects.
+- Semantic `ResultContext` classification independent from WordPress post type.
+- `cc_d5sr_result_context` filter for context key, label, badge and accent color overrides.
+- `data-result-context` output on native result cards using the same shared context resolver.
 - Native Divi 5 `codecorn/search-results` parent module metadata and server registration.
 - Native `codecorn/search-result-type` child-rule metadata and server registration.
 - Current-query and isolated-query resolver without global query mutation.
