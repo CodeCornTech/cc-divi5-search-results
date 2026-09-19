@@ -4,6 +4,7 @@
 
 ### Added
 
+- Query-wide post-type facets on `SearchResultSet`, opt-in through `include_facets`, with semantic context metadata and exact `found_posts` counts per included type.
 - Public `SearchEngine` integration facade returning normalized `SearchResultSet` / `SearchResultItem` objects.
 - Semantic `ResultContext` classification independent from WordPress post type.
 - `cc_d5sr_result_context` filter for context key, label, badge and accent color overrides.

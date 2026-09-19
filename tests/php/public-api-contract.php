@@ -7,6 +7,7 @@ $files = [
     'engine' => $root . '/includes/Api/SearchEngine.php',
     'set' => $root . '/includes/Api/SearchResultSet.php',
     'item' => $root . '/includes/Api/SearchResultItem.php',
+    'facet' => $root . '/includes/Api/SearchFacet.php',
     'context' => $root . '/includes/Context/ResultContext.php',
     'renderer' => $root . '/includes/Rendering/SearchResultsRenderer.php',
 ];
@@ -27,6 +28,7 @@ foreach ($files as $name => $file) {
 $engine = (string) file_get_contents($files['engine']);
 $set = (string) file_get_contents($files['set']);
 $item = (string) file_get_contents($files['item']);
+$facet = (string) file_get_contents($files['facet']);
 $context = (string) file_get_contents($files['context']);
 $renderer = (string) file_get_contents($files['renderer']);
 
@@ -43,8 +45,20 @@ cc_d5sr_api_assert(
         && str_contains($set, 'public readonly int $foundPosts')
         && str_contains($set, 'public readonly int $maxPages')
         && str_contains($set, 'public readonly int $currentPage')
-        && str_contains($set, 'public readonly string $searchTerm'),
-    'SearchResultSet exposes canonical pagination and term data'
+        && str_contains($set, 'public readonly string $searchTerm')
+        && str_contains($set, 'public readonly array $facets'),
+    'SearchResultSet exposes canonical pagination, term and facet data'
+);
+
+cc_d5sr_api_assert(
+    str_contains($facet, 'final class SearchFacet')
+        && str_contains($facet, 'public readonly string $postType')
+        && str_contains($facet, 'public readonly string $contextKey')
+        && str_contains($facet, 'public readonly int $count')
+        && str_contains($engine, "'include_facets'")
+        && str_contains($engine, 'private function facets(')
+        && str_contains($engine, "posts_per_page'] = 1"),
+    'SearchEngine exposes optional query-wide post-type facet counts'
 );
 
 foreach (
