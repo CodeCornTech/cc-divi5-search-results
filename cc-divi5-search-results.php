@@ -3,7 +3,7 @@
  * Plugin Name:       CC Divi 5 Search Results
  * Plugin URI:        https://github.com/CodeCornTech/cc-divi5-search-results
  * Description:       Native, type-aware search results for Divi 5.
- * Version:           0.1.0
+ * Version:           0.2.0
  * Requires at least: 6.6
  * Requires PHP:      8.1
  * Author:            CodeCorn Technology S.R.L.S.
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CC_D5SR_VERSION', '0.1.0' );
+define( 'CC_D5SR_VERSION', '0.2.0' );
 define( 'CC_D5SR_FILE', __FILE__ );
 define( 'CC_D5SR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CC_D5SR_URL', plugin_dir_url( __FILE__ ) );
