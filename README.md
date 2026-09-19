@@ -6,7 +6,7 @@ A public Divi 5 extension for type-aware WordPress search results. The native pa
 
 ## Current implementation
 
-The `0.1.0` development branch currently includes:
+The `0.2.0` baseline currently includes:
 
 - safe plugin bootstrap with Composer PSR-4 autoloading and a source-checkout fallback autoloader;
 - a private query derived from the real current WordPress search context without calling `query_posts()` or replacing global `$wp_query`;
@@ -149,6 +149,56 @@ add_filter( 'cc_d5sr_query_args', function ( array $query_args, array $options )
     return $query_args;
 }, 10, 2 );
 ```
+
+## Public integration API
+
+Search consumers that need their own markup should use the public PHP facade instead of the native module renderer or shortcode:
+
+```php
+use CodeCorn\Divi5SearchResults\Api\SearchEngine;
+
+$result = ( new SearchEngine() )->resolve(
+    array(
+        'source'         => 'current',
+        'posts_per_page' => 12,
+        'post_types'     => array( 'post', 'page', 'eventi' ),
+        'search_term'    => '',
+    )
+);
+```
+
+The returned `SearchResultSet` exposes the canonical search term, total results, current page, total pages and normalized `SearchResultItem` objects. Each item contains the WordPress post plus presentation-neutral data such as URL, title, excerpt, featured image, date, CTA and semantic context.
+
+Result context defaults to the post type rule but is deliberately independent from WordPress post type. Integrations can classify two posts of the same post type differently:
+
+```php
+add_filter(
+    'cc_d5sr_result_context',
+    function ( array $context, WP_Post $post, ResultTypeRule $rule ): array {
+        if ( 'eventi' === $post->post_type ) {
+            $context['key']          = 'evento';
+            $context['label']        = 'Evento';
+            $context['badge_label']  = 'Evento';
+            $context['accent_color'] = '#d77a2b';
+        }
+
+        return $context;
+    },
+    10,
+    3
+);
+```
+
+The stable context fields are:
+
+```text
+key
+label
+badge_label
+accent_color
+```
+
+The native renderer consumes the same resolver and emits `data-result-context` plus `--cc-d5sr-accent`, so generic Divi output and external consumers share the same classification contract.
 
 ## AJAX pagination contract
 
