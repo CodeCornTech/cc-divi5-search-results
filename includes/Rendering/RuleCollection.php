@@ -23,7 +23,11 @@ final class RuleCollection {
     }
 
     public function forPost( WP_Post $post ): ResultTypeRule {
-        return $this->rules[ $post->post_type ] ?? ResultTypeRule::fallback( $post->post_type );
+        return $this->forPostType( $post->post_type );
+    }
+
+    public function forPostType( string $post_type ): ResultTypeRule {
+        return $this->rules[ $post_type ] ?? ResultTypeRule::fallback( $post_type );
     }
 
     /**
