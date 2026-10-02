@@ -11,7 +11,10 @@ final class SearchQueryResolver {
     public function resolve( array $options ): QueryResult {
         $source             = sanitize_key( (string) ( $options['source'] ?? 'current' ) );
         $requested_page_size = (int) ( $options['posts_per_page'] ?? 10 );
-        $posts_per_page     = 0 < $requested_page_size ? min( 100, $requested_page_size ) : 10;
+        $nopaging            = -1 === $requested_page_size;
+        $posts_per_page      = $nopaging
+            ? -1
+            : ( 0 < $requested_page_size ? min( 100, $requested_page_size ) : 10 );
         $current_page       = max( 1, (int) ( $options['current_page'] ?? $this->currentPage() ) );
         $post_types         = $this->sanitizePostTypes( $options['post_types'] ?? array() );
         $requested_term     = sanitize_text_field( (string) ( $options['search_term'] ?? '' ) );
@@ -47,13 +50,13 @@ final class SearchQueryResolver {
             }
         }
 
-        $search_term = '' !== $requested_term
+        $search_term = array_key_exists( 'search_term', $options )
             ? $requested_term
             : sanitize_text_field( get_search_query( false ) );
         $query_args  = array(
             'ignore_sticky_posts' => true,
             'no_found_rows'       => false,
-            'nopaging'            => false,
+            'nopaging'            => $nopaging,
             'paged'               => $current_page,
             'post_status'         => 'publish',
             'post_type'           => $post_types ?: 'any',
