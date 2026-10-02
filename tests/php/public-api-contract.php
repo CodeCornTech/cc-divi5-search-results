@@ -97,10 +97,23 @@ cc_d5sr_api_assert(
     'native renderer consumes the same context resolver as external integrations'
 );
 
+$queryResolver = (string) file_get_contents(
+    $root . '/includes/Query/SearchQueryResolver.php'
+);
+
 cc_d5sr_api_assert(
-    str_contains((string) file_get_contents($root . '/includes/Query/SearchQueryResolver.php'), "array_key_exists( 'search_term', \\$options )")
-        && str_contains((string) file_get_contents($root . '/includes/Query/SearchQueryResolver.php'), '$nopaging            = -1 === $requested_page_size;')
-        && str_contains((string) file_get_contents($root . '/includes/Query/SearchQueryResolver.php'), "'nopaging'            => \\$nopaging"),
+    str_contains(
+        $queryResolver,
+        'array_key_exists( \'search_term\', $options )'
+    )
+        && str_contains(
+            $queryResolver,
+            '$nopaging            = -1 === $requested_page_size;'
+        )
+        && str_contains(
+            $queryResolver,
+            "'nopaging'            => \\$nopaging"
+        ),
     'SearchQueryResolver honors explicit empty terms and WordPress -1 unbounded result requests'
 );
 
