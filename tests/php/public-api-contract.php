@@ -112,7 +112,7 @@ cc_d5sr_api_assert(
         )
         && str_contains(
             $queryResolver,
-            "'nopaging'            => \\$nopaging"
+            '\'nopaging\'            => $nopaging'
         ),
     'SearchQueryResolver honors explicit empty terms and WordPress -1 unbounded result requests'
 );
